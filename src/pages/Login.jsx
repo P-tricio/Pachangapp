@@ -26,11 +26,8 @@ const Login = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        if (user) {
-            navigate('/');
-        }
-    }, [user, navigate]);
+    // Redirect handled by AppContent to avoid loops with missing profiles
+
 
     const handleGoogleLogin = async () => {
         try {

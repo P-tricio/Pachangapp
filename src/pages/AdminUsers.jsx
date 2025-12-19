@@ -7,7 +7,7 @@ import Button from '../components/ui/Button';
 import clsx from 'clsx';
 
 const AdminUsers = () => {
-    const { players, currentUser, updateUserStatus, updateUserRole, deleteUser } = useStore();
+    const { players, currentUser, updateUserStatus, updateUserRole, deleteUser, clearDatabase } = useStore();
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -143,6 +143,22 @@ const AdminUsers = () => {
                         No se encontraron jugadores.
                     </div>
                 )}
+
+                {/* Nuclear Reset Option */}
+                <div className="pt-10 pb-10 border-t border-slate-800 mt-10">
+                    <div className="bg-red-500/5 border border-red-500/20 p-6 rounded-2xl flex flex-col items-center text-center">
+                        <Trash2 className="text-red-500 mb-3" size={32} />
+                        <h2 className="text-white font-bold mb-1 italic">ZONA DE PELIGRO</h2>
+                        <p className="text-slate-500 text-xs mb-4">Borra permanentemente todos los jugadores, partidos y configuraciones para empezar de cero.</p>
+                        <Button
+                            variant="secondary"
+                            className="bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white"
+                            onClick={clearDatabase}
+                        >
+                            REINICIAR TODA LA APP
+                        </Button>
+                    </div>
+                </div>
             </div>
         </div>
     );

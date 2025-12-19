@@ -7,86 +7,7 @@ const StoreContext = createContext();
 
 export const useStore = () => useContext(StoreContext);
 
-const MOCK_PLAYERS = [
-    {
-        id: "1",
-        name: 'Esky',
-        alias: 'Esky',
-        realName: 'Esky',
-        photo: '/images/esky.png',
-        nationality: 'es',
-        position: 'DEL',
-        role: 'user',
-        attributes: { rit: 50, tir: 50, pas: 50, reg: 50, def: 50, fis: 50 },
-        stats: { mp: 0, goals: 0, assists: 0, mvp: 0 },
-        averageRating: 5.0
-    },
-    {
-        id: "2",
-        name: 'Paco',
-        alias: 'Paco',
-        realName: 'Paco',
-        photo: null,
-        nationality: 'es',
-        position: 'MED',
-        role: 'user',
-        attributes: { rit: 50, tir: 50, pas: 50, reg: 50, def: 50, fis: 50 },
-        stats: { mp: 0, goals: 0, assists: 0, mvp: 0 },
-        averageRating: 5.0
-    },
-    {
-        id: "3",
-        name: 'Alejandro',
-        alias: 'Ale',
-        realName: 'Alejandro',
-        photo: '/images/ale.png',
-        nationality: 'es',
-        position: 'DEF',
-        role: 'user',
-        attributes: { rit: 50, tir: 50, pas: 50, reg: 50, def: 50, fis: 50 },
-        stats: { mp: 0, goals: 0, assists: 0, mvp: 0 },
-        averageRating: 5.0
-    },
-    {
-        id: "4",
-        name: 'Cris',
-        alias: 'Cris',
-        realName: 'Cristian',
-        photo: '/images/cris.png',
-        nationality: 'it',
-        position: 'MED',
-        role: 'admin',
-        attributes: { rit: 50, tir: 50, pas: 50, reg: 50, def: 50, fis: 50 },
-        stats: { mp: 0, goals: 0, assists: 0, mvp: 0 },
-        averageRating: 5.0
-    },
-    {
-        id: "5",
-        name: 'Nico',
-        alias: 'Nico',
-        realName: 'Nicolas',
-        photo: null,
-        nationality: 'es',
-        position: 'MED',
-        role: 'user',
-        attributes: { rit: 50, tir: 50, pas: 50, reg: 50, def: 50, fis: 50 },
-        stats: { mp: 0, goals: 0, assists: 0, mvp: 0 },
-        averageRating: 5.0
-    },
-    {
-        id: "6",
-        name: 'Victor',
-        alias: 'Victor',
-        realName: 'Victor',
-        photo: null,
-        nationality: 'es',
-        position: 'MED',
-        role: 'user',
-        attributes: { rit: 50, tir: 50, pas: 50, reg: 50, def: 50, fis: 50 },
-        stats: { mp: 0, goals: 0, assists: 0, mvp: 0 },
-        averageRating: 5.0
-    },
-];
+// MOCK_PLAYERS removed for production cleanup
 
 const INITIAL_MATCH_STATE = {
     id: `match_${Date.now()}`,
@@ -127,14 +48,36 @@ export const StoreProvider = ({ children }) => {
         });
     };
 
-    // 1. Data Migration / Seeding
-    useEffect(() => {
-        const seedDatabase = async () => {
-            // Only seed if empty (we'll check via logic or manually trigger)
-            // Ideally we check if collection is empty, but for now we'll rely on the snapshot
-        };
-        seedDatabase();
-    }, []);
+    // Nuclear Cleanup Function
+    const clearDatabase = async () => {
+        if (!window.confirm("❗ ¿ESTÁS SEGURO? Esto borrará TODOS los jugadores, partidos y configuraciones. No se puede deshacer.")) return;
+
+        try {
+            // Delete matches
+            const matchPromises = (pastMatches || []).filter(m => m.id).map(m => {
+                return deleteDoc(doc(db, 'matches', String(m.id)));
+            });
+            // Delete players
+            const playerPromises = (players || []).filter(p => p.id).map(p => {
+                return deleteDoc(doc(db, 'users', String(p.id)));
+            });
+            // Reset config
+            const configPromise = setDoc(doc(db, 'system', 'config'), {
+                votingStatus: 'open',
+                votes: {},
+                mvpVotes: {},
+                currentMatch: INITIAL_MATCH_STATE,
+                announcement: { title: "", message: "", type: "info", isVisible: false }
+            });
+
+            await Promise.all([...matchPromises, ...playerPromises, configPromise]);
+            alert("Base de datos limpiada. La aplicación se reiniciará.");
+            window.location.reload();
+        } catch (error) {
+            console.error("Error clearing database:", error);
+            alert("Error al limpiar la base de datos.");
+        }
+    };
 
     // 2. Real-time Listeners
     // Users
@@ -150,15 +93,7 @@ export const StoreProvider = ({ children }) => {
         const q = query(collection(db, 'users'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const usersData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-
-            if (usersData.length === 0) {
-                console.log("Seeding database...");
-                MOCK_PLAYERS.forEach(async (p) => {
-                    await setDoc(doc(db, 'users', p.id), p);
-                });
-            } else {
-                setPlayers(usersData);
-            }
+            setPlayers(usersData);
             setPlayersLoading(false);
         }, (error) => {
             console.error("Error fetching users:", error);
@@ -167,22 +102,6 @@ export const StoreProvider = ({ children }) => {
 
         return () => unsubscribe();
     }, [authUser]);
-
-    // Force Logout if User Deleted (with Grace Period for registration)
-    useEffect(() => {
-        if (!playersLoading && authUser) {
-            // Give 3 seconds for registration flows to create the document
-            const timer = setTimeout(() => {
-                const userProfile = players.find(p => p.id === authUser.uid);
-                if (!userProfile) {
-                    console.warn("User profile not found (deleted?). Forcing logout.");
-                    logout();
-                }
-            }, 3000);
-
-            return () => clearTimeout(timer);
-        }
-    }, [authUser, players, playersLoading, logout]);
 
     // Current Match (System Config)
     useEffect(() => {
@@ -228,7 +147,7 @@ export const StoreProvider = ({ children }) => {
 
         const q = query(collection(db, 'matches'), orderBy('id', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const matchesData = snapshot.docs.map(doc => doc.data());
+            const matchesData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             setPastMatches(matchesData);
         }, (error) => {
             console.error("Error fetching matches:", error);
@@ -764,7 +683,8 @@ export const StoreProvider = ({ children }) => {
         confirmMatch,
         updateAnnouncement,
         completeOnboarding,
-        deleteUser
+        deleteUser,
+        clearDatabase
     };
 
     return (

@@ -154,7 +154,7 @@ const Home = () => {
                         <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">Fútbol Amateur</p>
                     </div>
                 </div>
-                <Link to={`/profile/${currentUser?.id}`} id="tour-profile" className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center border border-slate-700 overflow-hidden cursor-pointer hover:border-neon-green transition-colors">
+                <Link to={currentUser ? `/profile/${currentUser.id}` : "/profile"} id="tour-profile" className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center border border-slate-700 overflow-hidden cursor-pointer hover:border-neon-green transition-colors">
                     {/* User Avatar (from Store) */}
                     <img
                         src={getAvatar(currentUser)}

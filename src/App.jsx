@@ -1,7 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { StoreProvider, useStore } from './context/StoreContext';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { useLocation } from 'react-router-dom';
 import { Ban } from 'lucide-react';
 import MainLayout from './layouts/MainLayout';
 import Home from './pages/Home';
@@ -19,19 +20,56 @@ const BlockedView = () => (
     <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mb-6 animate-pulse">
       <Ban size={48} className="text-red-500" />
     </div>
-    <h1 className="text-3xl font-black text-white mb-2 uppercase">Cuenta Bloqueada</h1>
-    <p className="text-slate-400 mb-8 max-w-xs mx-auto">
+    <h1 className="text-3xl font-black text-white mb-2 uppercase italic">Cuenta Bloqueada</h1>
+    <p className="text-slate-400 mb-8 max-w-xs mx-auto text-sm">
       Tu acceso a la plataforma ha sido suspendido por un administrador.
     </p>
-    <div className="text-xs text-slate-600 font-mono">
-      Contacta con el admin para más info.
-    </div>
   </div>
 );
 
-const AppContent = () => {
-  const { currentUser } = useStore();
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+};
 
+const AppContent = () => {
+  const { currentUser, playersLoading } = useStore();
+  const { user, loading: authLoading } = useAuth();
+  const location = useLocation();
+
+  // 1. Initial Loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-neon-green"></div>
+      </div>
+    );
+  }
+
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+
+  // 2. Logged in but profile loading (only block if authenticated)
+  if (user && playersLoading && !isAuthPage) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-neon-green"></div>
+      </div>
+    );
+  }
+
+  // 3. User logged in but profile missing (Reset case) -> Go to Auth to recreate/register
+  if (user && !currentUser && !playersLoading && !isAuthPage) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // 4. Fully logged in and profile exists -> Don't stay on Login/Register
+  if (user && currentUser && isAuthPage) {
+    return <Navigate to="/" replace />;
+  }
+
+  // 5. Blocked user
   if (currentUser?.status === 'blocked') {
     return <BlockedView />;
   }
@@ -42,7 +80,7 @@ const AppContent = () => {
       <Route path="/register" element={<Register />} />
 
       {/* Main Layout Routes (With Bottom Bar) */}
-      <Route path="/" element={<MainLayout />}>
+      <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
         <Route index element={<Home />} />
         <Route path="rankings" element={<Rankings />} />
         <Route path="history" element={<History />} />
@@ -52,7 +90,7 @@ const AppContent = () => {
       </Route>
 
       {/* Standalone Routes (Fullscreen) */}
-      <Route path="/vote" element={<Vote />} />
+      <Route path="/vote" element={<ProtectedRoute><Vote /></ProtectedRoute>} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
