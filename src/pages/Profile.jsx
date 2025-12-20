@@ -13,6 +13,35 @@ const Profile = () => {
     const { players, updatePlayerProfile, updatePlayerCard, updatePlayerPhoto, getLeaderboard, isAdmin, currentUser } = useStore();
     const { logout, user: authUser } = useAuth(); // Get raw authUser too
 
+    // Helper: Card Tiers
+    const getCardTier = (rating) => {
+        const r = Number(rating);
+        if (r >= 75) return 'gold';
+        if (r >= 60) return 'silver';
+        return 'bronze';
+    };
+
+    const tierStyles = {
+        gold: {
+            bg: "bg-gradient-to-br from-yellow-600/20 via-yellow-900/20 to-slate-900",
+            border: "border-yellow-500/50",
+            shadow: "shadow-[0_0_30px_rgba(234,179,8,0.2)]",
+            text: "text-yellow-400"
+        },
+        silver: {
+            bg: "bg-gradient-to-br from-slate-400/20 via-slate-600/10 to-slate-900",
+            border: "border-slate-400/50",
+            shadow: "shadow-[0_0_30px_rgba(148,163,184,0.2)]",
+            text: "text-slate-300"
+        },
+        bronze: {
+            bg: "bg-gradient-to-br from-orange-700/20 via-orange-900/10 to-slate-900",
+            border: "border-orange-600/50",
+            shadow: "shadow-[0_0_30px_rgba(194,65,12,0.2)]",
+            text: "text-orange-400"
+        }
+    };
+
     const handleLogout = async () => {
         try {
             await logout();
@@ -64,6 +93,8 @@ const Profile = () => {
     // Use Leaderboard data to get accurate derived stats
     const meStats = meRaw ? (leaderboard.find(p => p.id === meRaw.id) || meRaw) : null;
     const derivedOverall = meStats?.stats?.mp > 0 ? Math.round(Number(meStats.average) * 10) : 50;
+    const currentTier = getCardTier(derivedOverall);
+    const tierConfig = tierStyles[currentTier];
     const TOTAL_POINTS = derivedOverall * 6;
 
     // AUTO-LEVELING: Sync attributes with budget changes (Avg up/down)
@@ -301,7 +332,10 @@ const Profile = () => {
             {/* MAIN CARD */}
             <div className="relative w-full max-w-sm mx-auto aspect-[4/5] mb-6 transform transition-all">
                 {/* Border / Container */}
-                <div className={clsx("absolute inset-0 rounded-[2.5rem] border bg-slate-900/50 overflow-hidden transition-colors", isEditing ? "border-neon-green shadow-[0_0_40px_rgba(57,255,20,0.2)]" : "border-slate-700 shadow-2xl")}>
+                <div className={clsx(
+                    "absolute inset-0 rounded-[2.5rem] border overflow-hidden transition-all duration-500",
+                    isEditing ? "border-neon-green shadow-[0_0_40px_rgba(57,255,20,0.2)] bg-slate-900/80" : `${tierConfig.bg} ${tierConfig.border} ${tierConfig.shadow}`
+                )}>
                     {/* Top Info */}
                     <div className="absolute top-6 left-6 text-white">
                         <div className="flex items-start space-x-1">

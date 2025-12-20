@@ -336,7 +336,9 @@ export const StoreProvider = ({ children }) => {
             updates = {
                 ...updates,
                 averageRating: newRating,
-                previousRating: oldRating, // Capture trend
+                // Only update previousRating if the rating ACTUALLY changed
+                // Otherwise, keep the existing previousRating to preserve the 'Trend'
+                previousRating: newRating !== oldRating ? oldRating : (player.previousRating || oldRating),
                 lastRatingUpdate: new Date().toISOString()
             };
         }

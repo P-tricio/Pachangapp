@@ -411,7 +411,7 @@ const Home = () => {
                                     <h4 className="text-xl font-bold text-white group-hover:text-yellow-400 transition-colors">{lastMVP.alias || lastMVP.name}</h4>
                                     <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{mvpMatch.date}</span>
                                 </div>
-                                <p className="text-sm text-slate-400">"{mvpMatchStats.goals} Goles · {mvpMatchStats.assists} Asistencias"</p>
+                                <p className="text-sm text-slate-400">"{mvpMatchStats?.goals || 0} Goles · {mvpMatchStats?.assists || 0} Asistencias"</p>
                             </div>
                         </Card>
                     </Link>
