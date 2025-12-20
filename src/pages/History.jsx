@@ -17,7 +17,7 @@ const History = () => {
 
     return (
         <div className="pb-4">
-            <h1 className="text-3xl font-black text-white mb-6 uppercase tracking-tight">Historial de <span className="text-neon-green">Partidos</span></h1>
+            {/* Header removed type global TopBar <h1 className="text-3xl font-black text-white mb-6 uppercase tracking-tight">Historial de <span className="text-neon-green">Partidos</span></h1> */}
 
             <div className="space-y-4">
                 {/* NEXT MATCH CARD */}

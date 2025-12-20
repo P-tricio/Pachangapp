@@ -243,27 +243,7 @@ const Profile = () => {
 
     return (
         <div className="pt-2 pb-24 px-4 bg-slate-900 min-h-screen">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center space-x-2">
-                    {/* Show Back Button if not viewing own profile (always enabled for admins too for navigation) */}
-                    {targetId !== currentUser?.id && (
-                        <button onClick={() => navigate(-1)} className="p-1 -ml-1 text-slate-400">
-                            <ChevronLeft size={24} />
-                        </button>
-                    )}
-                    <h1 className="text-xl font-bold text-white uppercase">{targetId === currentUser?.id ? 'Mi Perfil' : 'Ficha de Jugador'}</h1>
-                </div>
-                <div className="flex space-x-2">
-                    <button
-                        onClick={handleLogout}
-                        className="p-2 bg-slate-800 rounded-full text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
-                        title="Cerrar Sesión"
-                    >
-                        <LogOut size={20} />
-                    </button>
-                </div>
-            </div>
+            {/* Header removed - using Global TopBar */}
 
             {isEditing && (
                 <div className="mb-6 bg-slate-800/80 border border-neon-green/30 p-4 rounded-xl animate-in slide-in-from-top-4">
@@ -272,6 +252,17 @@ const Profile = () => {
                         <div className={clsx("text-sm font-mono font-bold px-2 py-1 rounded", remainingPoints >= 0 ? "bg-neon-green/20 text-neon-green" : "bg-red-500/20 text-red-500")}>
                             {remainingPoints >= 0 ? `${remainingPoints} Puntos Restantes` : `${remainingPoints} Exceso`}
                         </div>
+                    </div>
+
+                    {/* Alias Input (Moved here) */}
+                    <div className="mb-4">
+                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Alias / Nombre</label>
+                        <input
+                            value={tempAlias}
+                            onChange={(e) => setTempAlias(e.target.value)}
+                            className="w-full bg-slate-900 border-slate-700 text-white rounded-lg p-2 font-black uppercase tracking-wider focus:border-neon-green focus:outline-none"
+                            placeholder="TU NOMBRE"
+                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 mb-4">
@@ -372,16 +363,7 @@ const Profile = () => {
 
                     {/* Name & Divider */}
                     <div className="absolute bottom-24 w-full text-center px-4">
-                        {isEditing ? (
-                            <input
-                                value={tempAlias}
-                                onChange={(e) => setTempAlias(e.target.value)}
-                                className="bg-transparent text-center text-3xl font-black text-white uppercase tracking-wider w-full focus:outline-none border-b border-neon-green"
-                                placeholder="ALIAS"
-                            />
-                        ) : (
-                            <h2 className="text-3xl font-black text-white uppercase tracking-wider">{meRaw.alias || meRaw.name}.</h2>
-                        )}
+                        <h2 className="text-3xl font-black text-white uppercase tracking-wider">{isEditing ? tempAlias : (meRaw.alias || meRaw.name)}.</h2>
                         <div className="w-12 h-1 bg-neon-green mx-auto mt-2 rounded-full shadow-[0_0_10px_#39ff14]"></div>
                     </div>
 
@@ -406,6 +388,13 @@ const Profile = () => {
                     >
                         <Edit2 size={18} />
                         <span>Editar Tarjeta</span>
+                    </button>
+                    <button
+                        onClick={handleLogout}
+                        className="p-3.5 bg-slate-800 rounded-full text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors border border-slate-700"
+                        title="Cerrar Sesión"
+                    >
+                        <LogOut size={20} />
                     </button>
                     <button
                         onClick={() => setIsQRVisible(true)}

@@ -7,7 +7,7 @@ import clsx from 'clsx';
 import ResultModal from '../components/ResultModal';
 
 const MatchDetails = () => {
-    const { currentMatch, setAttendance, players, currentUser, addGuestPlayer, removeGuestPlayer, generateTeams, isAdmin, confirmMatch, updateMatchDetails, setMatchResult } = useStore();
+    const { currentMatch, setAttendance, players, currentUser, addGuestPlayer, removeGuestPlayer, generateTeams, clearTeams, isAdmin, confirmMatch, updateMatchDetails, setMatchResult } = useStore();
     const navigate = useNavigate();
 
     const isPending = currentMatch.status === 'pending_confirmation';
@@ -141,6 +141,89 @@ const MatchDetails = () => {
                 </div>
             )}
 
+            {/* TEAMS SECTION */}
+            <div className="mb-8">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Equipos</h2>
+                    {isAdmin && (
+                        <div className="flex space-x-2">
+                            {currentMatch.teams && (
+                                <button
+                                    onClick={() => {
+                                        if (window.confirm("¿Estás seguro de que quieres borrar los equipos?")) clearTeams();
+                                    }}
+                                    className="text-xs font-bold bg-slate-800 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/30 flex items-center space-x-1 hover:bg-red-500 hover:text-white transition-colors"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            )}
+                            <button
+                                onClick={generateTeams}
+                                className="text-xs font-bold bg-slate-800 text-neon-green px-3 py-1.5 rounded-lg border border-neon-green/30 flex items-center space-x-1 hover:bg-neon-green hover:text-slate-900 transition-colors"
+                            >
+                                <Shuffle size={14} />
+                                <span>Generar Aleatorios</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {
+                    currentMatch.teams ? (
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Team A */}
+                            <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-3">
+                                <h3 className="text-center font-black text-white italic uppercase mb-3 text-sm flex items-center justify-center space-x-2">
+                                    <span>Equipo A</span>
+                                    {currentMatch.teams.avgA && <span className="text-xs font-mono text-neon-green bg-neon-green/10 px-1.5 rounded">⭐ {currentMatch.teams.avgA}</span>}
+                                </h3>
+                                <div className="space-y-2">
+                                    {currentMatch.teams.teamA.map(p => (
+                                        <div key={p.id} className="flex items-center space-x-2 text-sm text-slate-300">
+                                            <div className="w-6 h-6 rounded-full overflow-hidden bg-slate-700">
+                                                {p.photo ? (
+                                                    <img src={p.photo} className="w-full h-full object-cover" alt={p.alias} />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">{p.alias.substring(0, 2)}</div>
+                                                )}
+                                            </div>
+                                            <span className="truncate">{p.alias}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Team B */}
+                            <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-3">
+                                <h3 className="text-center font-black text-white italic uppercase mb-3 text-sm text-neon-green flex items-center justify-center space-x-2">
+                                    <span>Equipo B</span>
+                                    {currentMatch.teams.avgB && <span className="text-xs font-mono text-neon-green bg-neon-green/10 px-1.5 rounded">⭐ {currentMatch.teams.avgB}</span>}
+                                </h3>
+                                <div className="space-y-2">
+                                    {currentMatch.teams.teamB.map(p => (
+                                        <div key={p.id} className="flex items-center space-x-2 text-sm text-slate-300">
+                                            <div className="w-6 h-6 rounded-full overflow-hidden bg-slate-700">
+                                                {p.photo ? (
+                                                    <img src={p.photo} className="w-full h-full object-cover" alt={p.alias} />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">{p.alias.substring(0, 2)}</div>
+                                                )}
+                                            </div>
+                                            <span className="truncate">{p.alias}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center py-8 border-2 border-dashed border-slate-800 rounded-xl">
+                            <Users className="mx-auto text-slate-600 mb-2" size={32} />
+                            <p className="text-slate-500 text-sm font-medium">Equipos no definidos</p>
+                        </div>
+                    )
+                }
+            </div>
+
             {/* My Status Action */}
             {isUpcoming && (
                 <div className="mb-8">
@@ -248,76 +331,7 @@ const MatchDetails = () => {
             </div>
 
 
-            {/* TEAMS SECTION */}
-            < div className="mt-8" >
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Equipos</h2>
-                    {isAdmin && (
-                        <button
-                            onClick={generateTeams}
-                            className="text-xs font-bold bg-slate-800 text-neon-green px-3 py-1.5 rounded-lg border border-neon-green/30 flex items-center space-x-1 hover:bg-neon-green hover:text-slate-900 transition-colors"
-                        >
-                            <Shuffle size={14} />
-                            <span>Generar Aleatorios</span>
-                        </button>
-                    )}
-                </div>
 
-                {
-                    currentMatch.teams ? (
-                        <div className="grid grid-cols-2 gap-4">
-                            {/* Team A */}
-                            <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-3">
-                                <h3 className="text-center font-black text-white italic uppercase mb-3 text-sm flex items-center justify-center space-x-2">
-                                    <span>Equipo A</span>
-                                    {currentMatch.teams.avgA && <span className="text-xs font-mono text-neon-green bg-neon-green/10 px-1.5 rounded">⭐ {currentMatch.teams.avgA}</span>}
-                                </h3>
-                                <div className="space-y-2">
-                                    {currentMatch.teams.teamA.map(p => (
-                                        <div key={p.id} className="flex items-center space-x-2 text-sm text-slate-300">
-                                            <div className="w-6 h-6 rounded-full overflow-hidden bg-slate-700">
-                                                {p.photo ? (
-                                                    <img src={p.photo} className="w-full h-full object-cover" alt={p.alias} />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">{p.alias.substring(0, 2)}</div>
-                                                )}
-                                            </div>
-                                            <span className="truncate">{p.alias}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Team B */}
-                            <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-3">
-                                <h3 className="text-center font-black text-white italic uppercase mb-3 text-sm text-neon-green flex items-center justify-center space-x-2">
-                                    <span>Equipo B</span>
-                                    {currentMatch.teams.avgB && <span className="text-xs font-mono text-neon-green bg-neon-green/10 px-1.5 rounded">⭐ {currentMatch.teams.avgB}</span>}
-                                </h3>
-                                <div className="space-y-2">
-                                    {currentMatch.teams.teamB.map(p => (
-                                        <div key={p.id} className="flex items-center space-x-2 text-sm text-slate-300">
-                                            <div className="w-6 h-6 rounded-full overflow-hidden bg-slate-700">
-                                                {p.photo ? (
-                                                    <img src={p.photo} className="w-full h-full object-cover" alt={p.alias} />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">{p.alias.substring(0, 2)}</div>
-                                                )}
-                                            </div>
-                                            <span className="truncate">{p.alias}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="text-center py-8 border-2 border-dashed border-slate-800 rounded-xl">
-                            <Users className="mx-auto text-slate-600 mb-2" size={32} />
-                            <p className="text-slate-500 text-sm font-medium">Equipos no definidos</p>
-                        </div>
-                    )
-                }
-            </div>
 
 
 

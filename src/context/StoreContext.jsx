@@ -41,11 +41,66 @@ export const StoreProvider = ({ children }) => {
         isVisible: false
     });
 
+    // Notification State
+    const [notifications, setNotifications] = useState([]);
+
+    // Notification Actions
+    const sendNotification = async (userId, title, message, type = 'info', link = null) => {
+        try {
+            const notifRef = doc(collection(db, 'users', userId, 'notifications'));
+            await setDoc(notifRef, {
+                title,
+                message,
+                type,
+                link,
+                read: false,
+                createdAt: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error("Error sending notification:", error);
+        }
+    };
+
+    const markAsRead = async (notificationId) => {
+        if (!currentUser) return;
+        try {
+            const notifRef = doc(db, 'users', currentUser.id, 'notifications', notificationId);
+            await updateDoc(notifRef, { read: true });
+        } catch (error) {
+            console.error("Error marking as read:", error);
+        }
+    };
+
+    const clearNotifications = async () => {
+        if (!currentUser) return;
+        notifications.forEach(n => {
+            if (!n.read) markAsRead(n.id);
+        });
+    };
+
+    const sendNotificationToAll = async (title, message, type = 'info', link = null) => {
+        // Iterate all players and send notification
+        // Note: In real app, use Cloud Functions. Here we loop client-side (Admin only).
+        console.log("Sending Mass Notification:", title);
+        const promises = players.map(p => sendNotification(p.id, title, message, type, link));
+        await Promise.all(promises);
+    };
+
     const updateAnnouncement = async (announcementData) => {
         const configRef = doc(db, 'system', 'config');
         await updateDoc(configRef, {
             announcement: announcementData
         });
+
+        // Trigger Notification if becoming visible
+        if (announcementData.isVisible) {
+            await sendNotificationToAll(
+                "Nuevo Comunicado: " + announcementData.title,
+                announcementData.message,
+                announcementData.type === 'urgent' ? 'warning' : 'info',
+                '/'
+            );
+        }
     };
 
     // Nuclear Cleanup Function
@@ -113,6 +168,10 @@ export const StoreProvider = ({ children }) => {
                 const data = docSnap.data();
                 setCurrentMatch(data.currentMatch);
 
+                // Notification Trigger: Check if status changed to 'played_pending_votes'
+                // This logic is tricky in snapshot listener. Ideally move to SetMatchResult action.
+                // WE WILL DO IT IN ACTIONS to avoid loops.
+
                 if (data.currentMatch.status === 'played_pending_votes') {
                     setVotingStatus('open');
                 } else {
@@ -151,6 +210,24 @@ export const StoreProvider = ({ children }) => {
             setPastMatches(matchesData);
         }, (error) => {
             console.error("Error fetching matches:", error);
+        });
+        return () => unsubscribe();
+    }, [authUser]);
+
+    // Notifications Listener
+    useEffect(() => {
+        if (!authUser) {
+            setNotifications([]);
+            return;
+        }
+
+        // We need the user's Firestore ID, which matches authUser.uid
+        const q = query(collection(db, 'users', authUser.uid, 'notifications'), orderBy('createdAt', 'desc'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const notifs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            setNotifications(notifs);
+        }, (error) => {
+            console.error("Error fetching notifications:", error);
         });
         return () => unsubscribe();
     }, [authUser]);
@@ -389,6 +466,22 @@ export const StoreProvider = ({ children }) => {
                 avgB: getAvg(teamB)
             }
         });
+
+        // Trigger Notification
+        await sendNotificationToAll(
+            "¡Equipos Generados!",
+            "Los equipos para el próximo partido ya están listos. Entra para ver tu equipo.",
+            "action",
+            "/match"
+        );
+    };
+
+    const clearTeams = async () => {
+        if (!isAdmin) return;
+        const configRef = doc(db, 'system', 'config');
+        await updateDoc(configRef, {
+            'currentMatch.teams': null
+        });
     };
 
     // STAGE 2: Set Result & Open Voting (or Update Result)
@@ -408,6 +501,16 @@ export const StoreProvider = ({ children }) => {
             'currentMatch.playerStats': playerStats
         });
         // Voting status is handled by listener on 'status'
+
+        // Trigger Notification if opened voting
+        if (newStatus === 'played_pending_votes') {
+            await sendNotificationToAll(
+                "¡Votaciones Abiertas!",
+                "El partido ha terminado. Valora a tus compañeros y elige al MVP.",
+                "success",
+                "/vote"
+            );
+        }
     };
 
     // STAGE 3: Close Voting (Admin Only)
@@ -613,6 +716,15 @@ export const StoreProvider = ({ children }) => {
             });
 
             console.log("Match finalized successfully.");
+
+            // Trigger Notification
+            await sendNotificationToAll(
+                "Resultados Publicados",
+                `MVP: ${mvpPlayer ? (mvpPlayer.alias || mvpPlayer.name) : 'N/A'}. Marcador: ${currentMatch.result?.scoreA}-${currentMatch.result?.scoreB}`,
+                "success",
+                "/"
+            );
+
             alert("Partido finalizado y archivado correctamente.");
 
         } catch (error) {
@@ -662,17 +774,19 @@ export const StoreProvider = ({ children }) => {
         mvpVotes,
         announcement,
         pastMatches,
+        notifications,
         setMatchResult,
         finalizeMatch,
         closeVoting,
         castVote,
         castMvpVote,
         getLeaderboard,
-        setCurrentMatch, // Warning: Avoid using this directly, use specific actions
+        setCurrentMatch,
         updateMatchDetails,
         addGuestPlayer,
         removeGuestPlayer,
         generateTeams,
+        clearTeams, // Export
         toggleVoting,
         updatePlayerProfile,
         updatePlayerPhoto,
@@ -684,7 +798,10 @@ export const StoreProvider = ({ children }) => {
         updateAnnouncement,
         completeOnboarding,
         deleteUser,
-        clearDatabase
+        clearDatabase,
+        sendNotification,
+        markAsRead,
+        clearNotifications
     };
 
     return (

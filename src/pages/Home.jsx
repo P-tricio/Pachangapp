@@ -144,25 +144,7 @@ const Home = () => {
                 </div>
             )}
 
-            <header className="flex justify-between items-center mb-6">
-                <div className="flex items-center space-x-3">
-                    <FootballFieldIcon className="w-8 h-12" />
-                    <div>
-                        <h1 className="text-xl font-black text-white italic tracking-tighter uppercase leading-none">
-                            Pachang<span className="text-neon-green">App</span>
-                        </h1>
-                        <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">Fútbol Amateur</p>
-                    </div>
-                </div>
-                <Link to={currentUser ? `/profile/${currentUser.id}` : "/profile"} id="tour-profile" className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center border border-slate-700 overflow-hidden cursor-pointer hover:border-neon-green transition-colors">
-                    {/* User Avatar (from Store) */}
-                    <img
-                        src={getAvatar(currentUser)}
-                        alt="User"
-                        className="w-full h-full object-cover opacity-90"
-                    />
-                </Link>
-            </header>
+            {/* Header removed - using Global TopBar */}
 
             {/* ADMIN DASHBOARD */}
             {
@@ -427,7 +409,7 @@ const Home = () => {
                             <div>
                                 <div className="flex items-center space-x-2">
                                     <h4 className="text-xl font-bold text-white group-hover:text-yellow-400 transition-colors">{lastMVP.alias || lastMVP.name}</h4>
-                                    <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{new Date(mvpMatch.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
+                                    <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{mvpMatch.date}</span>
                                 </div>
                                 <p className="text-sm text-slate-400">"{mvpMatchStats.goals} Goles · {mvpMatchStats.assists} Asistencias"</p>
                             </div>

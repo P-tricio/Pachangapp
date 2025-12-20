@@ -25,12 +25,17 @@ const SoccerBallIcon = ({ size = 24, className }) => (
     </svg>
 );
 
+import TopBar from '../components/TopBar';
+
 const MainLayout = () => {
     const { currentMatch, votingStatus } = useStore();
     const isVotingOpen = votingStatus === 'open';
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-900 text-slate-100 font-sans pb-20">
+            {/* Global Header */}
+            <TopBar />
+
             {/* Main Content Area */}
             <main className="flex-grow p-4 overflow-y-auto w-full max-w-md mx-auto">
                 <Outlet />

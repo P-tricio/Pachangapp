@@ -31,10 +31,10 @@ const Rankings = () => {
 
     return (
         <div className="pb-24 min-h-screen bg-slate-900 px-4 pt-10">
-            <h1 className="text-3xl font-black text-white mb-12 uppercase tracking-tight text-center">Clasificación <span className="text-neon-green">GENERAL</span></h1>
+            {/* Header removed for global TopBar <h1 className="text-3xl font-black text-white mb-12 uppercase tracking-tight text-center">Clasificación <span className="text-neon-green">GENERAL</span></h1> */}
 
             {/* PODIUM SECTION */}
-            <div className="flex justify-center items-end mt-16 mb-12 space-x-2 sm:space-x-4">
+            <div className="flex justify-center items-end mt-4 mb-8 space-x-2 sm:space-x-4">
                 {/* 2nd Place */}
                 {top3[1] && <PodiumStep player={top3[1]} rank={2} delay={0.2} />}
 
