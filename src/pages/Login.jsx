@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { db } from '../firebase/config';
@@ -26,15 +26,28 @@ const Login = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // Protection against race condition:
+    // If we are actively logging in, we don't want the useEffect to redirect prematurely.
+    // We want the handler to finish creating the profile FIRST, then redirect manually.
+    const isSubmitting = useRef(false);
+
     // Redirect handled by AppContent to avoid loops with missing profiles
+    // BUT we also want to redirect if user visits /login while already auth'd
+    useEffect(() => {
+        if (user && !isSubmitting.current) {
+            navigate('/');
+        }
+    }, [user, navigate]);
 
 
     const handleGoogleLogin = async () => {
+        isSubmitting.current = true; // Block auto-redirect
         try {
             const user = await loginWithGoogle();
 
             if (!user) {
                 console.error("No user result from Google Login");
+                isSubmitting.current = false; // Reset if cancelled
                 return;
             }
 
@@ -60,9 +73,14 @@ const Login = () => {
                     averageRating: 5.0
                 });
             }
+
+            // Manual Redirect after profile ensures readiness
+            navigate('/');
+
         } catch (error) {
             console.error("Login failed", error);
             setError("Error al iniciar con Google");
+            isSubmitting.current = false;
         }
     };
 
@@ -70,6 +88,8 @@ const Login = () => {
         e.preventDefault();
         setError('');
         setLoading(true);
+        isSubmitting.current = true; // Block auto-redirect
+
         try {
             const userCredential = await loginWithEmail(email, password);
             const user = userCredential.user;
@@ -100,10 +120,13 @@ const Login = () => {
                 });
             }
 
+            navigate('/');
+
         } catch (err) {
             console.error(err);
             setError("Credenciales incorrectas o error en el servidor");
             setLoading(false);
+            isSubmitting.current = false;
         }
     };
 

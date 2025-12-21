@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { updateProfile } from 'firebase/auth';
@@ -17,14 +17,27 @@ const Register = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // Protection: Block auto-redirect during active registration
+    const isSubmitting = useRef(false);
+
+    const { user } = useAuth();
+
+    useEffect(() => {
+        if (user && !isSubmitting.current) {
+            navigate('/');
+        }
+    }, [user, navigate]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setLoading(true);
+        isSubmitting.current = true; // Block auto-redirect to allow full profile creation
 
         if (!email || !password || !alias) {
             setError('Por favor, rellena todos los campos.');
             setLoading(false);
+            isSubmitting.current = false;
             return;
         }
 
@@ -68,6 +81,7 @@ const Register = () => {
             } else {
                 setError('Error al registrarse: ' + err.message);
             }
+            isSubmitting.current = false;
         } finally {
             setLoading(false);
         }
