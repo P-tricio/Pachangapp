@@ -365,6 +365,7 @@ export const StoreProvider = ({ children }) => {
     // Fix: Super Admin should effectively be Admin in ALL leagues context
     const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superAdmin' || isSuperAdmin;
 
+
     // ACTIONS (Write to Firestore)
 
     const castVote = async (playerId, value) => {
