@@ -37,83 +37,84 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-const { currentUser, userProfile, playersLoading, isSuperAdmin, setCurrentLeagueId } = useStore();
-const { user, loading: authLoading } = useAuth();
-const location = useLocation();
-const navigate = useNavigate(); // Ensure useNavigate is imported if not already used in AppContent? 
-// Wait, useNavigate is NOT in AppContent scope in original file? 
-// Line 41: const AppContent = () => { ... }
-// Line 3 imported `useNavigate`? No, Line 3 imports `StoreProvider`.
-// Line 2 imports `Navigate` (component).
-// I need to add `useNavigate` to imports and use it in `AppContent` because `Navigate` component return within Effect is not possible (Effect returns cleanup fn).
-// Actually, I can render <Navigate /> in the return statements IF I do it in render logic.
-// But purely side-effect logic (setting state) is better in Effect.
-// Let's stick to Conditional Rendering for the Redirect (return <Navigate ... />).
-// And Effect for the State Update (setCurrentLeagueId).
+const AppContent = () => {
+  const { currentUser, userProfile, playersLoading, isSuperAdmin, setCurrentLeagueId } = useStore();
+  const { user, loading: authLoading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate(); // Ensure useNavigate is imported if not already used in AppContent? 
+  // Wait, useNavigate is NOT in AppContent scope in original file? 
+  // Line 41: const AppContent = () => { ... }
+  // Line 3 imported `useNavigate`? No, Line 3 imports `StoreProvider`.
+  // Line 2 imports `Navigate` (component).
+  // I need to add `useNavigate` to imports and use it in `AppContent` because `Navigate` component return within Effect is not possible (Effect returns cleanup fn).
+  // Actually, I can render <Navigate /> in the return statements IF I do it in render logic.
+  // But purely side-effect logic (setting state) is better in Effect.
+  // Let's stick to Conditional Rendering for the Redirect (return <Navigate ... />).
+  // And Effect for the State Update (setCurrentLeagueId).
 
-// Revised approach for simpler React:
-// 5. Global Profile exists, but USER HAS NO LEAGUES -> Redirect to Join
-const isExcludedPath = location.pathname === '/join-league' || location.pathname === '/super-admin' || location.pathname === '/create-league';
-const hasLeagues = userProfile?.leagues && Object.keys(userProfile.leagues).length > 0;
+  // Revised approach for simpler React:
+  // 5. Global Profile exists, but USER HAS NO LEAGUES -> Redirect to Join
+  const isExcludedPath = location.pathname === '/join-league' || location.pathname === '/super-admin' || location.pathname === '/create-league';
+  const hasLeagues = userProfile?.leagues && Object.keys(userProfile.leagues).length > 0;
 
-if (user && userProfile && !playersLoading && !hasLeagues && !isExcludedPath && !isSuperAdmin) {
-  return <Navigate to="/join-league" replace />;
-}
-
-// 6. User HAS leagues but Invalid Context (Ghost User) -> Auto-switch to first league
-// This is a side-effect (state update), cannot be done in render.
-React.useEffect(() => {
-  if (user && userProfile && !playersLoading && hasLeagues && !currentUser) {
-    const firstLeagueId = Object.keys(userProfile.leagues)[0];
-    console.log("[App] Auto-switching to league:", firstLeagueId);
-    setCurrentLeagueId(firstLeagueId);
+  if (user && userProfile && !playersLoading && !hasLeagues && !isExcludedPath && !isSuperAdmin) {
+    return <Navigate to="/join-league" replace />;
   }
-}, [user, userProfile, playersLoading, hasLeagues, currentUser, setCurrentLeagueId]);
 
-// 5. Blocked user (Check global status)
-if (userProfile?.status === 'blocked') {
-  return <BlockedView />;
-}
+  // 6. User HAS leagues but Invalid Context (Ghost User) -> Auto-switch to first league
+  // This is a side-effect (state update), cannot be done in render.
+  React.useEffect(() => {
+    if (user && userProfile && !playersLoading && hasLeagues && !currentUser) {
+      const firstLeagueId = Object.keys(userProfile.leagues)[0];
+      console.log("[App] Auto-switching to league:", firstLeagueId);
+      setCurrentLeagueId(firstLeagueId);
+    }
+  }, [user, userProfile, playersLoading, hasLeagues, currentUser, setCurrentLeagueId]);
 
-return (
-  <>
-    <ScrollToTop />
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+  // 5. Blocked user (Check global status)
+  if (userProfile?.status === 'blocked') {
+    return <BlockedView />;
+  }
 
-      {/* Main Layout Routes (With Bottom Bar) */}
-      <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-        <Route index element={<Home />} />
-        <Route path="rankings" element={<Rankings />} />
-        <Route path="history" element={<History />} />
-        <Route path="profile/:id?" element={<Profile />} />
-        <Route path="match" element={<MatchDetails />} />
-        <Route path="admin/users" element={<AdminUsers />} />
-      </Route>
-
-      {/* Standalone Routes (Fullscreen) */}
-      <Route path="/vote" element={<ProtectedRoute><Vote /></ProtectedRoute>} />
-      <Route path="/join-league" element={<ProtectedRoute><JoinLeague /></ProtectedRoute>} />
-      <Route path="/super-admin" element={<ProtectedRoute><SuperAdminDashboard /></ProtectedRoute>} />
-
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  </>
-);
-};
-
-function App() {
   return (
-    <AuthProvider>
-      <StoreProvider>
-        <BrowserRouter>
-          <AppContent />
-        </BrowserRouter>
-      </StoreProvider>
-    </AuthProvider>
-  );
-}
+    <>
+      <ScrollToTop />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-export default App;
+        {/* Main Layout Routes (With Bottom Bar) */}
+        <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+          <Route index element={<Home />} />
+          <Route path="rankings" element={<Rankings />} />
+          <Route path="history" element={<History />} />
+          <Route path="profile/:id?" element={<Profile />} />
+          <Route path="match" element={<MatchDetails />} />
+          <Route path="admin/users" element={<AdminUsers />} />
+        </Route>
+
+        {/* Standalone Routes (Fullscreen) */}
+        <Route path="/vote" element={<ProtectedRoute><Vote /></ProtectedRoute>} />
+        <Route path="/join-league" element={<ProtectedRoute><JoinLeague /></ProtectedRoute>} />
+        <Route path="/super-admin" element={<ProtectedRoute><SuperAdminDashboard /></ProtectedRoute>} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
+  );
+
+
+  function App() {
+    return (
+      <AuthProvider>
+        <StoreProvider>
+          <BrowserRouter>
+            <AppContent />
+          </BrowserRouter>
+        </StoreProvider>
+      </AuthProvider>
+    );
+  }
+
+  export default App;
