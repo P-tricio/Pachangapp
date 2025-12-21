@@ -103,18 +103,19 @@ const AppContent = () => {
       </Routes>
     </>
   );
+};
 
 
-  function App() {
-    return (
-      <AuthProvider>
-        <StoreProvider>
-          <BrowserRouter>
-            <AppContent />
-          </BrowserRouter>
-        </StoreProvider>
-      </AuthProvider>
-    );
-  }
+function App() {
+  return (
+    <AuthProvider>
+      <StoreProvider>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </StoreProvider>
+    </AuthProvider>
+  );
+}
 
-  export default App;
+export default App;
