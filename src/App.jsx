@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { Ban } from 'lucide-react';
 import MainLayout from './layouts/MainLayout';
+import ScrollToTop from './components/ScrollToTop';
 import Home from './pages/Home';
 import Rankings from './pages/Rankings';
 import History from './pages/History';
@@ -14,6 +15,8 @@ import MatchDetails from './pages/MatchDetails';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AdminUsers from './pages/AdminUsers';
+import JoinLeague from './pages/JoinLeague';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
 
 const BlockedView = () => (
   <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
@@ -35,11 +38,20 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const AppContent = () => {
-  const { currentUser, playersLoading } = useStore();
+  const { currentUser, userProfile, playersLoading, isSuperAdmin } = useStore();
   const { user, loading: authLoading } = useAuth();
   const location = useLocation();
+  console.log("Current Path:", location.pathname);
 
   // 1. Initial Loading
+  React.useEffect(() => {
+    console.log(`[AppDebug] Path: ${location.pathname} | AuthLoading: ${authLoading} | User: ${!!user} | PlayersLoading: ${playersLoading} | CurrentUser: ${!!currentUser} | UserProfile: ${!!userProfile}`);
+    // Fix: Check userProfile (Global) instead of currentUser (League) for account existence
+    if (user && !userProfile && !playersLoading) {
+      console.warn("[AppDebug] Redirecting to login because User exists but Global Profile is missing.");
+    }
+  }, [location, authLoading, user, playersLoading, currentUser, userProfile]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -59,42 +71,67 @@ const AppContent = () => {
     );
   }
 
-  // 3. User logged in but profile missing (Reset case) -> Go to Auth to recreate/register
-  if (user && !currentUser && !playersLoading && !isAuthPage) {
+  // 3. User logged in but GLOBAL profile missing (Reset case) -> Go to Auth to recreate/register
+  // If userProfile exists (Global) but currentUser is missing (League), we DO NOT redirect to login.
+  if (user && !userProfile && !playersLoading && !isAuthPage) {
     return <Navigate to="/login" replace />;
   }
 
   // 4. Fully logged in and profile exists -> Don't stay on Login/Register
-  if (user && currentUser && isAuthPage) {
+  if (user && userProfile && isAuthPage) {
     return <Navigate to="/" replace />;
   }
 
-  // 5. Blocked user
-  if (currentUser?.status === 'blocked') {
+  // 5. Global Profile exists, but NOT a member of the current league (and presumably no other, or context switch needed)
+  // If we are NOT already on /join-league or /super-admin (exception), redirect to /join-league
+  // We check !currentUser because that indicates they aren't in the loaded 'players' list of the current league.
+  const isExcludedPath = location.pathname === '/join-league' || location.pathname === '/super-admin' || location.pathname === '/create-league';
+
+  if (user && userProfile && !playersLoading && !currentUser && !isExcludedPath) {
+    // console.warn("[AppDebug] Redirecting to /join-league because currentUser (League Member) is missing.");
+    // return <Navigate to="/join-league" replace />;
+  }
+
+  // 5. Global Profile exists, but USER HAS NO LEAGUES.
+  // Redirect to /join-league to get them started.
+  // const hasLeagues = userProfile?.leagues && Object.keys(userProfile.leagues).length > 0;
+
+  // if (user && userProfile && !playersLoading && !hasLeagues && !isExcludedPath && !isSuperAdmin) {
+  //    console.warn("[AppDebug] Redirecting to /join-league because user has no leagues.");
+  //    return <Navigate to="/join-league" replace />;
+  // }
+
+  // 5. Blocked user (Check global status)
+  if (userProfile?.status === 'blocked') {
     return <BlockedView />;
   }
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+    <>
+      <ScrollToTop />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-      {/* Main Layout Routes (With Bottom Bar) */}
-      <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-        <Route index element={<Home />} />
-        <Route path="rankings" element={<Rankings />} />
-        <Route path="history" element={<History />} />
-        <Route path="profile/:id?" element={<Profile />} />
-        <Route path="match" element={<MatchDetails />} />
-        <Route path="admin/users" element={<AdminUsers />} />
-      </Route>
+        {/* Main Layout Routes (With Bottom Bar) */}
+        <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+          <Route index element={<Home />} />
+          <Route path="rankings" element={<Rankings />} />
+          <Route path="history" element={<History />} />
+          <Route path="profile/:id?" element={<Profile />} />
+          <Route path="match" element={<MatchDetails />} />
+          <Route path="admin/users" element={<AdminUsers />} />
+        </Route>
 
-      {/* Standalone Routes (Fullscreen) */}
-      <Route path="/vote" element={<ProtectedRoute><Vote /></ProtectedRoute>} />
+        {/* Standalone Routes (Fullscreen) */}
+        <Route path="/vote" element={<ProtectedRoute><Vote /></ProtectedRoute>} />
+        <Route path="/join-league" element={<ProtectedRoute><JoinLeague /></ProtectedRoute>} />
+        <Route path="/super-admin" element={<ProtectedRoute><SuperAdminDashboard /></ProtectedRoute>} />
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 };
 

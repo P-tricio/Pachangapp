@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 
-import { Calendar, Crown, ArrowRight, Clock, ChevronRight, Shield, ToggleLeft, ToggleRight, Scale, Minus, Plus, User, CheckCircle, Megaphone, AlertCircle, Info, AlertTriangle, Trophy } from 'lucide-react';
+import { Calendar, Crown, ArrowRight, Clock, ChevronRight, Shield, ToggleLeft, ToggleRight, Scale, Minus, Plus, User, CheckCircle, Megaphone, AlertCircle, Info, AlertTriangle, Trophy, ChevronDown } from 'lucide-react';
 import ResultModal from '../components/ResultModal';
 import AnnouncementModal from '../components/AnnouncementModal';
 import { motion } from 'framer-motion';
@@ -34,8 +34,11 @@ const Home = () => {
     const [isEditingMatch, setIsEditingMatch] = React.useState(false);
     const [isResultModalOpen, setIsResultModalOpen] = React.useState(false);
     const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = React.useState(false);
+    const [isMatchSelectorOpen, setIsMatchSelectorOpen] = React.useState(false);
+    const [targetMatchToEdit, setTargetMatchToEdit] = React.useState(null); // The match object to edit
+    const [isAdminPanelOpen, setIsAdminPanelOpen] = React.useState(false); // Collapsible admin panel
 
-    const { currentMatch, players, isAdmin, closeVoting, finalizeMatch, updateMatchDetails, currentUser, pastMatches, setMatchResult, confirmMatch, announcement, updateAnnouncement, completeOnboarding } = useStore();
+    const { currentMatch, players, isAdmin, closeVoting, finalizeMatch, updateMatchDetails, currentUser, pastMatches, setMatchResult, confirmMatch, announcement, updateAnnouncement, completeOnboarding, updateHistoricMatch } = useStore();
     const navigate = useNavigate();
 
 
@@ -75,6 +78,12 @@ const Home = () => {
     const handleSaveMatch = () => {
         updateMatchDetails(matchForm);
         setIsEditingMatch(false);
+    };
+
+    const handleMatchSelect = (match) => {
+        setTargetMatchToEdit(match);
+        setIsMatchSelectorOpen(false);
+        setIsResultModalOpen(true);
     };
 
     // Dynamic MVP: Get from last match WITH an MVP
@@ -150,107 +159,123 @@ const Home = () => {
             {
                 isAdmin && (
                     <section className="mb-6">
-                        <Card className="bg-slate-900 border-neon-green/50 border-dashed">
-                            <div className="flex items-center space-x-2 mb-4 text-neon-green">
-                                <Shield size={18} />
-                                <h3 className="text-xs font-bold uppercase tracking-widest">Panel de Administrador</h3>
+                        <Card className="bg-slate-900 border-neon-green/50 border-dashed overflow-hidden transition-all duration-300">
+                            <div
+                                onClick={() => setIsAdminPanelOpen(!isAdminPanelOpen)}
+                                className="flex items-center justify-between cursor-pointer"
+                            >
+                                <div className="flex items-center space-x-2 text-neon-green">
+                                    <Shield size={18} />
+                                    <h3 className="text-xs font-bold uppercase tracking-widest">Panel de Administrador</h3>
+                                </div>
+                                <motion.div
+                                    animate={{ rotate: isAdminPanelOpen ? 180 : 0 }}
+                                    transition={{ duration: 0.2 }}
+                                >
+                                    <ChevronDown size={18} className="text-slate-500" />
+                                </motion.div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
-                                {currentMatch.status === 'pending_confirmation' && (
-                                    <button
-                                        onClick={() => {
-                                            if (window.confirm("¿Confirmar partido y abrir convocatoria?")) confirmMatch();
-                                        }}
-                                        className="col-span-2 p-3 rounded-lg border flex items-center justify-center space-x-2 transition-all active:scale-95 bg-orange-500/20 border-orange-500 text-orange-500 hover:bg-orange-500/30"
-                                    >
-                                        <CheckCircle size={20} />
-                                        <span className="text-xs font-bold uppercase">Confirmar y Abrir Convocatoria</span>
-                                    </button>
-                                )}
-
-                                {currentMatch.status === 'played_pending_votes' && (
-                                    <>
+                            <motion.div
+                                initial={false}
+                                animate={{ height: isAdminPanelOpen ? 'auto' : 0, opacity: isAdminPanelOpen ? 1 : 0 }}
+                                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                                className="overflow-hidden"
+                            >
+                                <div className="grid grid-cols-2 gap-3 pt-4">
+                                    {currentMatch.status === 'pending_confirmation' && (
                                         <button
                                             onClick={() => {
-                                                console.log("CERRAR VOTACION CLIECKED");
-                                                closeVoting();
+                                                if (window.confirm("¿Confirmar partido y abrir convocatoria?")) confirmMatch();
                                             }}
-                                            className="p-3 rounded-lg border flex flex-col items-center justify-center transition-all active:scale-95 bg-red-500/20 border-red-500 text-red-500 hover:bg-red-500/30"
+                                            className="col-span-2 p-3 rounded-lg border flex items-center justify-center space-x-2 transition-all active:scale-95 bg-orange-500/20 border-orange-500 text-orange-500 hover:bg-orange-500/30"
                                         >
-                                            <ToggleLeft size={24} />
-                                            <span className="text-[10px] font-bold mt-1 uppercase">Cerrar Votación</span>
+                                            <CheckCircle size={20} />
+                                            <span className="text-xs font-bold uppercase">Confirmar y Abrir Convocatoria</span>
                                         </button>
+                                    )}
 
+                                    {currentMatch.status === 'played_pending_votes' && (
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    console.log("CERRAR VOTACION CLIECKED");
+                                                    closeVoting();
+                                                }}
+                                                className="p-3 rounded-lg border flex flex-col items-center justify-center transition-all active:scale-95 bg-red-500/20 border-red-500 text-red-500 hover:bg-red-500/30"
+                                            >
+                                                <ToggleLeft size={24} />
+                                                <span className="text-[10px] font-bold mt-1 uppercase">Cerrar Votación</span>
+                                            </button>
+
+                                            <button
+                                                onClick={() => setIsMatchSelectorOpen(true)}
+                                                className="p-3 rounded-lg border flex flex-col items-center justify-center transition-all active:scale-95 bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white"
+                                            >
+                                                <Scale size={24} />
+                                                <span className="text-[10px] font-bold mt-1 uppercase">Modificar Resultado</span>
+                                            </button>
+                                        </>
+                                    )}
+
+                                    {currentMatch.status === 'voting_closed' && (
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    console.log("FINALIZAR PARTIDO CLICKED");
+                                                    finalizeMatch();
+                                                }}
+                                                className="p-3 rounded-lg border flex flex-col items-center justify-center transition-all active:scale-95 bg-neon-green/20 border-neon-green text-neon-green hover:bg-neon-green/30"
+                                            >
+                                                <Crown size={24} />
+                                                <span className="text-[10px] font-bold mt-1 uppercase">Finalizar Partido</span>
+                                            </button>
+
+                                            <button
+                                                onClick={() => setIsMatchSelectorOpen(true)}
+                                                className="p-3 rounded-lg border flex flex-col items-center justify-center transition-all active:scale-95 bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white"
+                                            >
+                                                <Scale size={24} />
+                                                <span className="text-[10px] font-bold mt-1 uppercase">Modificar Resultado</span>
+                                            </button>
+                                        </>
+                                    )}
+
+                                    <button
+                                        onClick={() => setIsEditingMatch(true)}
+                                        className="p-3 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 flex flex-col items-center justify-center hover:bg-slate-700 hover:text-white transition-colors"
+                                    >
+                                        <Calendar size={24} />
+                                        <span className="text-[10px] font-bold mt-1 uppercase">Editar Partido</span>
+                                    </button>
+
+                                    {currentMatch.status === 'upcoming' && (
                                         <button
-                                            onClick={() => setIsResultModalOpen(true)}
-                                            className="p-3 rounded-lg border flex flex-col items-center justify-center transition-all active:scale-95 bg-yellow-500/20 border-yellow-500 text-yellow-500 hover:bg-yellow-500/30"
+                                            onClick={() => setIsMatchSelectorOpen(true)}
+                                            className="p-3 rounded-lg border flex flex-col items-center justify-center transition-all active:scale-95 bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white"
                                         >
                                             <Scale size={24} />
                                             <span className="text-[10px] font-bold mt-1 uppercase">Modificar Resultado</span>
                                         </button>
-                                    </>
-                                )}
+                                    )}
 
-                                {currentMatch.status === 'voting_closed' && (
-                                    <>
-                                        <button
-                                            onClick={() => {
-                                                console.log("FINALIZAR PARTIDO CLICKED");
-                                                finalizeMatch();
-                                            }}
-                                            className="p-3 rounded-lg border flex flex-col items-center justify-center transition-all active:scale-95 bg-neon-green/20 border-neon-green text-neon-green hover:bg-neon-green/30"
-                                        >
-                                            <Crown size={24} />
-                                            <span className="text-[10px] font-bold mt-1 uppercase">Finalizar Partido</span>
-                                        </button>
-
-                                        <button
-                                            onClick={() => setIsResultModalOpen(true)}
-                                            className="p-3 rounded-lg border flex flex-col items-center justify-center transition-all active:scale-95 bg-yellow-500/20 border-yellow-500 text-yellow-500 hover:bg-yellow-500/30"
-                                        >
-                                            <Scale size={24} />
-                                            <span className="text-[10px] font-bold mt-1 uppercase">Modificar Resultado</span>
-                                        </button>
-                                    </>
-                                )}
-
-                                <button
-                                    onClick={() => setIsEditingMatch(true)}
-                                    className="p-3 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 flex flex-col items-center justify-center hover:bg-slate-700 hover:text-white transition-colors"
-                                >
-                                    <Calendar size={24} />
-                                    <span className="text-[10px] font-bold mt-1 uppercase">Editar Partido</span>
-                                </button>
-
-                                {currentMatch.status === 'upcoming' && (
                                     <button
-                                        onClick={() => setIsResultModalOpen(true)}
-                                        className="p-3 rounded-lg border flex flex-col items-center justify-center transition-all active:scale-95 bg-yellow-500/20 border-yellow-500 text-yellow-500 hover:bg-yellow-500/30"
+                                        onClick={() => navigate('/admin/users')}
+                                        className="p-3 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 flex flex-col items-center justify-center hover:border-neon-green hover:text-white transition-colors"
                                     >
-                                        <Scale size={24} />
-                                        <span className="text-[10px] font-bold mt-1 uppercase">Modificar Resultado</span>
+                                        <User size={24} />
+                                        <span className="text-[10px] font-bold mt-1 uppercase">Administrar</span>
                                     </button>
-                                )}
 
-
-
-                                <button
-                                    onClick={() => navigate('/admin/users')}
-                                    className="p-3 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 flex flex-col items-center justify-center hover:border-neon-green hover:text-white transition-colors"
-                                >
-                                    <User size={24} />
-                                    <span className="text-[10px] font-bold mt-1 uppercase">Usuarios</span>
-                                </button>
-
-                                <button
-                                    onClick={() => setIsAnnouncementModalOpen(true)}
-                                    className="p-3 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 flex flex-col items-center justify-center hover:border-neon-green hover:text-white transition-colors"
-                                >
-                                    <Megaphone size={24} />
-                                    <span className="text-[10px] font-bold mt-1 uppercase">Comunicado</span>
-                                </button>
-                            </div>
+                                    <button
+                                        onClick={() => setIsAnnouncementModalOpen(true)}
+                                        className="p-3 rounded-lg border border-slate-700 bg-slate-800 text-slate-400 flex flex-col items-center justify-center hover:border-neon-green hover:text-white transition-colors"
+                                    >
+                                        <Megaphone size={24} />
+                                        <span className="text-[10px] font-bold mt-1 uppercase">Comunicado</span>
+                                    </button>
+                                </div>
+                            </motion.div>
                         </Card>
                     </section>
                 )
@@ -297,17 +322,97 @@ const Home = () => {
                 )
             }
 
+            {/* Match Selector Modal */}
+            {isMatchSelectorOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+                    <Card className="w-full max-w-md bg-slate-900 border-slate-700 max-h-[80vh] flex flex-col">
+                        <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
+                            <h3 className="text-lg font-black text-white uppercase italic">Seleccionar Partido</h3>
+                            <button onClick={() => setIsMatchSelectorOpen(false)} className="text-slate-400 hover:text-white"><Minus size={20} /></button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                            {/* Option 1: Current Match (if editable status) */}
+                            {['upcoming', 'played_pending_votes', 'voting_closed'].includes(currentMatch.status) && (
+                                <div
+                                    onClick={() => handleMatchSelect(currentMatch)}
+                                    className="p-4 rounded-xl bg-slate-800 border border-neon-green/30 hover:bg-slate-700 cursor-pointer transition-all active:scale-95 group"
+                                >
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-2 h-2 rounded-full bg-neon-green/40 group-hover:bg-neon-green animate-pulse"></div>
+                                            <div>
+                                                <h4 className="font-bold text-white uppercase text-sm">Partido Actual</h4>
+                                                <p className="text-[10px] text-slate-400">{currentMatch.status === 'upcoming' ? 'Próximo' : 'En Curso / Finalizando'}</p>
+                                            </div>
+                                        </div>
+                                        <ChevronRight size={16} className="text-slate-500 group-hover:text-neon-green" />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Option 2: Past Matches */}
+                            <div className="mt-4">
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-wider">Historial Reciente</h4>
+                                {pastMatches.map(m => (
+                                    <div
+                                        key={m.id}
+                                        onClick={() => handleMatchSelect({ ...m, isHistoric: true })}
+                                        className="p-3 mb-2 rounded-lg bg-slate-800/50 border border-slate-800 hover:border-slate-600 hover:bg-slate-800 cursor-pointer transition-all active:scale-95 flex justify-between items-center group"
+                                    >
+                                        <div className="flex items-center space-x-3">
+                                            <div className="text-center w-8">
+                                                <span className="block text-[10px] text-slate-500 font-bold uppercase">{(m.date || '??/??').split('/')[0] || '?'}</span>
+                                                <span className="block text-[8px] text-slate-600 font-bold uppercase">{(m.date || '??/??').split('/')[1] || '?'}</span>
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-slate-300 text-xs group-hover:text-white">{m.score}</p>
+                                                <p className="text-[9px] text-slate-500">MVP: {m.mvp}</p>
+                                            </div>
+                                        </div>
+                                        <ChevronRight size={14} className="text-slate-600 group-hover:text-white" />
+                                    </div>
+                                ))}
+                                {pastMatches.length === 0 && (
+                                    <div className="text-center py-4 text-xs text-slate-600 italic">No hay partidos anteriores.</div>
+                                )}
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            )}
+
             {/* Result Modal */}
             {
-                isResultModalOpen && (
+                isResultModalOpen && targetMatchToEdit && (
                     <ResultModal
                         isOpen={isResultModalOpen}
-                        onClose={() => setIsResultModalOpen(false)}
-                        initialData={currentMatch}
-                        currentMatch={currentMatch}
-                        onConfirm={async (scoreA, scoreB, stats) => {
-                            await setMatchResult(scoreA, scoreB, stats);
+                        onClose={() => {
                             setIsResultModalOpen(false);
+                            setTargetMatchToEdit(null);
+                        }}
+                        // Fix for initial data: historic matches have 'score' string, currentMatch has result object.
+                        // Need to normalize for Modal.
+                        initialData={targetMatchToEdit.isHistoric ? {
+                            result: {
+                                scoreA: parseInt(targetMatchToEdit.score?.split('-')[0] || 0),
+                                scoreB: parseInt(targetMatchToEdit.score?.split('-')[1] || 0)
+                            },
+                            playerStats: targetMatchToEdit.playerStats
+                        } : targetMatchToEdit}
+                        currentMatch={targetMatchToEdit}
+                        // IMPORTANT: currentMatch prop is used for TEAM LISTS.
+                        // Ensure targetMatchToEdit has 'teams' populated.
+
+                        onConfirm={async (scoreA, scoreB, stats) => {
+                            if (targetMatchToEdit.isHistoric) {
+                                await updateHistoricMatch(targetMatchToEdit.id, { scoreA, scoreB, playerStats: stats });
+                                alert("Historial actualizado (solo visual, sin recalcular stats globales).");
+                            } else {
+                                await setMatchResult(scoreA, scoreB, stats);
+                            }
+                            setIsResultModalOpen(false);
+                            setTargetMatchToEdit(null);
                         }}
                     />
                 )

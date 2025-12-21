@@ -344,7 +344,7 @@ const Profile = () => {
                             {(() => {
                                 const avg = meStats?.average || 5.0;
                                 const prev = meStats?.previousRating ?? avg;
-                                const diff = (parseFloat(avg) - parseFloat(prev)).toFixed(1);
+                                const diff = Math.round((parseFloat(avg) - parseFloat(prev)) * 10);
                                 const isUp = diff > 0;
                                 const isDown = diff < 0;
 
@@ -494,30 +494,39 @@ const Profile = () => {
                         <div className="text-center space-y-6">
                             <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">Comparte tu Ficha</h3>
 
-                            <div className="bg-white p-4 rounded-xl inline-block mx-auto shadow-xl">
-                                <img
-                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.href)}&color=0f172a&bgcolor=ffffff`}
-                                    alt="QR Code"
-                                    className="w-48 h-48 mix-blend-multiply"
-                                />
-                            </div>
+                            {(() => {
+                                // Construct the specific URL for this player, avoiding generic '/profile'
+                                const shareUrl = `${window.location.origin}/profile/${meRaw.id}`;
 
-                            <p className="text-slate-400 text-sm font-medium">Escanea para ver las estadísticas de <span className="text-neon-green font-bold">{meRaw.alias}</span></p>
+                                return (
+                                    <>
+                                        <div className="bg-white p-4 rounded-xl inline-block mx-auto shadow-xl">
+                                            <img
+                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareUrl)}&color=0f172a&bgcolor=ffffff`}
+                                                alt="QR Code"
+                                                className="w-48 h-48 mix-blend-multiply"
+                                            />
+                                        </div>
 
-                            <button
-                                onClick={() => {
-                                    navigator.clipboard.writeText(window.location.href);
-                                    setIsCopied(true);
-                                    setTimeout(() => setIsCopied(false), 2000);
-                                }}
-                                className={clsx(
-                                    "w-full py-4 rounded-xl font-bold uppercase tracking-wider flex items-center justify-center space-x-2 transition-all",
-                                    isCopied ? "bg-neon-green text-slate-900" : "bg-slate-800 text-white hover:bg-slate-700"
-                                )}
-                            >
-                                {isCopied ? <Check size={20} /> : <Copy size={20} />}
-                                <span>{isCopied ? '¡Enlace Copiado!' : 'Copiar Enlace'}</span>
-                            </button>
+                                        <p className="text-slate-400 text-sm font-medium">Escanea para ver las estadísticas de <span className="text-neon-green font-bold">{meRaw.alias}</span></p>
+
+                                        <button
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(shareUrl);
+                                                setIsCopied(true);
+                                                setTimeout(() => setIsCopied(false), 2000);
+                                            }}
+                                            className={clsx(
+                                                "w-full py-4 rounded-xl font-bold uppercase tracking-wider flex items-center justify-center space-x-2 transition-all",
+                                                isCopied ? "bg-neon-green text-slate-900" : "bg-slate-800 text-white hover:bg-slate-700"
+                                            )}
+                                        >
+                                            {isCopied ? <Check size={20} /> : <Copy size={20} />}
+                                            <span>{isCopied ? '¡Enlace Copiado!' : 'Copiar Enlace'}</span>
+                                        </button>
+                                    </>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>

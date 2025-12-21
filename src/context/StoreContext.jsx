@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase/config';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, query, orderBy, getDoc, getDocs, deleteField, where, documentId } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 
 const StoreContext = createContext();
@@ -23,10 +23,26 @@ const INITIAL_MATCH_STATE = {
 
 export const StoreProvider = ({ children }) => {
     const { user: authUser, logout } = useAuth();
+    // Initialize from LocalStorage or default
+    const [currentLeagueId, setCurrentLeagueIdState] = useState(() => {
+        return localStorage.getItem('currentLeagueId') || 'default';
+    });
+
+    // Wrapper to update LocalStorage
+    const setCurrentLeagueId = (id) => {
+        localStorage.setItem('currentLeagueId', id);
+        setCurrentLeagueIdState(id);
+    };
     const [players, setPlayers] = useState([]);
     const [playersLoading, setPlayersLoading] = useState(true);
     const [currentMatch, setCurrentMatch] = useState(INITIAL_MATCH_STATE);
     const [pastMatches, setPastMatches] = useState([]);
+
+    // We need two listeners for Players: 
+    // 1. Global Profiles (users collection) - to get names/photos
+    // 2. League Members (leagues/{id}/members) - to get stats/ratings specific to this league
+    const [globalUsers, setGlobalUsers] = useState({}); // Map { uid: profileData }
+    const [leagueMembers, setLeagueMembers] = useState({}); // Map { uid: statsData }
 
     // Independent Voting State 
     const [votingStatus, setVotingStatus] = useState('open');
@@ -53,6 +69,8 @@ export const StoreProvider = ({ children }) => {
                 message,
                 type,
                 link,
+                leagueId: currentLeagueId || 'default', // Add origin league
+                leagueName: currentLeagueData?.metadata?.name || 'Liga', // Add league name for UI
                 read: false,
                 createdAt: new Date().toISOString()
             });
@@ -71,23 +89,22 @@ export const StoreProvider = ({ children }) => {
         }
     };
 
-    const clearNotifications = async () => {
-        if (!currentUser) return;
-        notifications.forEach(n => {
-            if (!n.read) markAsRead(n.id);
-        });
-    };
+
 
     const sendNotificationToAll = async (title, message, type = 'info', link = null) => {
         // Iterate all players and send notification
         // Note: In real app, use Cloud Functions. Here we loop client-side (Admin only).
         console.log("Sending Mass Notification:", title);
-        const promises = players.map(p => sendNotification(p.id, title, message, type, link));
-        await Promise.all(promises);
+
+        const batchPromises = players.map(p =>
+            sendNotification(p.id, title, message, type, link)
+        );
+
+        await Promise.all(batchPromises);
     };
 
     const updateAnnouncement = async (announcementData) => {
-        const configRef = doc(db, 'system', 'config');
+        const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
         await updateDoc(configRef, {
             announcement: announcementData
         });
@@ -136,41 +153,71 @@ export const StoreProvider = ({ children }) => {
 
     // 2. Real-time Listeners
     // Users
+    // 1. Listen to Global Users (Profiles)
     useEffect(() => {
         if (!authUser) {
-            setPlayers([]); // Clear on logout
+            setGlobalUsers({});
+            return;
+        }
+        const q = query(collection(db, 'users'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const usersMap = {};
+            snapshot.docs.forEach(doc => {
+                usersMap[doc.id] = { ...doc.data(), id: doc.id };
+            });
+            setGlobalUsers(usersMap);
+        });
+        return () => unsubscribe();
+    }, [authUser]);
+
+    // 2. Listen to League Members (Stats)
+    useEffect(() => {
+        if (!authUser || !currentLeagueId) {
+            setLeagueMembers({});
             setPlayersLoading(false);
             return;
         }
 
         setPlayersLoading(true);
-
-        const q = query(collection(db, 'users'));
+        const q = collection(db, 'leagues', currentLeagueId, 'members');
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const usersData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            setPlayers(usersData);
-            setPlayersLoading(false);
-        }, (error) => {
-            console.error("Error fetching users:", error);
+            const membersMap = {};
+            snapshot.docs.forEach(doc => {
+                membersMap[doc.id] = doc.data();
+            });
+            setLeagueMembers(membersMap);
             setPlayersLoading(false);
         });
-
         return () => unsubscribe();
-    }, [authUser]);
+    }, [authUser, currentLeagueId]);
+
+    // 3. Merge Users + Members to form 'players' list
+    useEffect(() => {
+        const merged = Object.keys(leagueMembers).map(uid => {
+            const profile = globalUsers[uid];
+            const memberStats = leagueMembers[uid];
+            if (!profile) return null; // Member exists but no profile? (Edge case)
+
+            return {
+                ...profile,
+                ...memberStats, // Overwrite global stats with local league stats
+                id: uid
+            };
+        }).filter(Boolean); // Remove nulls
+
+        setPlayers(merged);
+    }, [globalUsers, leagueMembers]);
 
     // Current Match (System Config)
+    // Current Match (League Config)
     useEffect(() => {
-        if (!authUser) return;
+        if (!authUser || !currentLeagueId) return;
 
-        const docRef = doc(db, 'system', 'config');
+        const docRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 setCurrentMatch(data.currentMatch);
-
-                // Notification Trigger: Check if status changed to 'played_pending_votes'
-                // This logic is tricky in snapshot listener. Ideally move to SetMatchResult action.
-                // WE WILL DO IT IN ACTIONS to avoid loops.
 
                 if (data.currentMatch.status === 'played_pending_votes') {
                     setVotingStatus('open');
@@ -180,31 +227,42 @@ export const StoreProvider = ({ children }) => {
 
                 if (data.votes) setVotes(data.votes);
                 if (data.mvpVotes) setMvpVotes(data.mvpVotes);
-                if (data.announcement) setAnnouncement(data.announcement); // Sync Announcement
+                if (data.announcement) setAnnouncement(data.announcement);
 
             } else {
-                // Seed System Config
-                setDoc(docRef, {
-                    currentMatch: INITIAL_MATCH_STATE,
-                    votes: {},
-                    mvpVotes: {},
-                    announcement: { title: "", message: "", type: "info", isVisible: false }
-                });
+                // Config missing (new league?) - handled by migration or init
             }
         }, (error) => {
             console.error("Error fetching config:", error);
         });
         return () => unsubscribe();
-    }, [authUser]);
+    }, [authUser, currentLeagueId]);
+
+    // NEW: Listen to League Metadata (Name, Invite Code, etc.)
+    const [currentLeagueData, setCurrentLeagueData] = useState(null);
+    useEffect(() => {
+        if (!authUser || !currentLeagueId) {
+            setCurrentLeagueData(null);
+            return;
+        }
+        const leagueRef = doc(db, 'leagues', currentLeagueId);
+        const unsubscribe = onSnapshot(leagueRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setCurrentLeagueData({ id: docSnap.id, ...docSnap.data() });
+            }
+        }, (error) => console.error("Error fetching league data:", error));
+        return () => unsubscribe();
+    }, [authUser, currentLeagueId]);
 
     // Match History
+    // Match History
     useEffect(() => {
-        if (!authUser) {
+        if (!authUser || !currentLeagueId) {
             setPastMatches([]);
             return;
         }
 
-        const q = query(collection(db, 'matches'), orderBy('id', 'desc'));
+        const q = query(collection(db, 'leagues', currentLeagueId, 'matches'), orderBy('id', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const matchesData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             setPastMatches(matchesData);
@@ -212,7 +270,7 @@ export const StoreProvider = ({ children }) => {
             console.error("Error fetching matches:", error);
         });
         return () => unsubscribe();
-    }, [authUser]);
+    }, [authUser, currentLeagueId]);
 
     // Notifications Listener
     useEffect(() => {
@@ -233,7 +291,54 @@ export const StoreProvider = ({ children }) => {
     }, [authUser]);
 
 
-    // Derived State and Helpers
+    // Derived State and Helpers (Moved Up for dependencies)
+    const currentUser = useMemo(() => {
+        if (!authUser) return null;
+        return players.find(p => p.id === authUser.uid);
+    }, [authUser, players]);
+
+    const userProfile = useMemo(() => {
+        if (!authUser) return null;
+        return globalUsers[authUser.uid] ? { ...globalUsers[authUser.uid], id: authUser.uid } : null;
+    }, [authUser, globalUsers]);
+
+
+    // 3. User's Leagues (Metadata)
+    const [myLeagues, setMyLeagues] = useState([]);
+
+    useEffect(() => {
+        if (!userProfile || !userProfile.leagues) {
+            setMyLeagues([]);
+            return;
+        }
+
+        const leagueIds = Object.keys(userProfile.leagues);
+        if (leagueIds.length === 0) {
+            setMyLeagues([]);
+            return;
+        }
+
+        // Real-time listener for user's leagues (max 10 for 'in' query)
+        // If user has > 10 leagues, we'd need to chunk it, but for now 10 is plenty.
+        const safeIds = leagueIds.slice(0, 10);
+
+        const q = query(collection(db, 'leagues'), where(documentId(), 'in', safeIds));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const leagueData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data().metadata
+            }));
+            setMyLeagues(leagueData);
+        }, (error) => {
+            console.error("Error listening to my leagues:", error);
+        });
+
+        return () => unsubscribe();
+    }, [userProfile]);
+
+
+    // Derived State and Helpers (Cont)
     const getLeaderboard = useMemo(() => {
         return players.map(p => {
             const average = p.averageRating || 5.0; // Default to 5.0 now
@@ -247,12 +352,13 @@ export const StoreProvider = ({ children }) => {
         });
     }, [players]);
 
-    const currentUser = useMemo(() => {
-        if (!authUser) return null;
-        return players.find(p => p.id === authUser.uid);
-    }, [authUser, players]);
+    // currentUser and userProfile moved up
 
-    const isAdmin = currentUser?.role === 'admin';
+
+    const isSuperAdmin = userProfile?.isSuperAdmin === true || userProfile?.role === 'superAdmin';
+
+    // Fix: Super Admin should effectively be Admin in ALL leagues context
+    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superAdmin' || isSuperAdmin;
 
     // ACTIONS (Write to Firestore)
 
@@ -286,9 +392,7 @@ export const StoreProvider = ({ children }) => {
             return;
         }
 
-        // We'll store votes as: votes: { [voterUid]: { [targetId]: value } }
-        const configRef = doc(db, 'system', 'config');
-        // We need to merge deeply. using updateDoc with dot notation
+        const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
         await updateDoc(configRef, {
             [`votes.${currentUser.id}.${playerId}`]: value
         });
@@ -297,7 +401,7 @@ export const StoreProvider = ({ children }) => {
     const castMvpVote = async (playerId) => {
         if (!currentUser) return;
         setMvpVotes(prev => ({ ...prev, [currentUser.id]: playerId }));
-        const configRef = doc(db, 'system', 'config');
+        const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
         await updateDoc(configRef, {
             [`mvpVotes.${currentUser.id}`]: playerId
         });
@@ -316,6 +420,7 @@ export const StoreProvider = ({ children }) => {
         setPlayers(prev => prev.map(p =>
             p.id == playerId ? { ...p, alias: newAlias } : p
         ));
+        // Update global profile
         const playerRef = doc(db, 'users', String(playerId));
         await updateDoc(playerRef, { alias: newAlias });
     };
@@ -359,7 +464,7 @@ export const StoreProvider = ({ children }) => {
     };
 
     const setAttendance = async (playerId, status) => {
-        const configRef = doc(db, 'system', 'config');
+        const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
         await updateDoc(configRef, {
             [`currentMatch.attendance.${playerId}`]: status
         });
@@ -373,7 +478,7 @@ export const StoreProvider = ({ children }) => {
     };
 
     const updateMatchDetails = async (updates) => {
-        const configRef = doc(db, 'system', 'config');
+        const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
         // Construct update object with dot notation for nested fields
         const firestoreUpdates = {};
         Object.keys(updates).forEach(key => {
@@ -391,9 +496,7 @@ export const StoreProvider = ({ children }) => {
             role: 'guest',
             status: 'confirmed'
         };
-        const configRef = doc(db, 'system', 'config');
-        // arrayUnion would be better but we need to read first? No, we can append.
-        // Firestore `arrayUnion` needs import. For now, let's read/write or just use currentMatch from state.
+        const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
         const updatedGuests = [...(currentMatch.guestPlayers || []), newGuest];
         await updateDoc(configRef, {
             'currentMatch.guestPlayers': updatedGuests
@@ -402,7 +505,7 @@ export const StoreProvider = ({ children }) => {
 
     const removeGuestPlayer = async (guestId) => {
         const updatedGuests = (currentMatch.guestPlayers || []).filter(g => g.id !== guestId);
-        const configRef = doc(db, 'system', 'config');
+        const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
         await updateDoc(configRef, {
             'currentMatch.guestPlayers': updatedGuests
         });
@@ -459,7 +562,7 @@ export const StoreProvider = ({ children }) => {
         };
 
         // 6. DB Update
-        const configRef = doc(db, 'system', 'config');
+        const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
         await updateDoc(configRef, {
             'currentMatch.teams': {
                 teamA,
@@ -480,7 +583,7 @@ export const StoreProvider = ({ children }) => {
 
     const clearTeams = async () => {
         if (!isAdmin) return;
-        const configRef = doc(db, 'system', 'config');
+        const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
         await updateDoc(configRef, {
             'currentMatch.teams': null
         });
@@ -488,7 +591,7 @@ export const StoreProvider = ({ children }) => {
 
     // STAGE 2: Set Result & Open Voting (or Update Result)
     const setMatchResult = async (scoreA, scoreB, playerStats) => {
-        const configRef = doc(db, 'system', 'config');
+        const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
 
         // Determine new status: Only advance if it's currently 'upcoming'
         // If it's already 'played_pending_votes' or 'voting_closed', keep it as is.
@@ -517,7 +620,7 @@ export const StoreProvider = ({ children }) => {
 
     // STAGE 3: Close Voting (Admin Only)
     const closeVoting = async () => {
-        const configRef = doc(db, 'system', 'config');
+        const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
         await updateDoc(configRef, {
             'currentMatch.status': 'voting_closed'
         });
@@ -634,7 +737,7 @@ export const StoreProvider = ({ children }) => {
 
             console.log("Archiving match:", newRecord);
             // Add to 'matches' collection
-            await setDoc(doc(db, 'matches', String(newRecord.id)), newRecord);
+            await setDoc(doc(db, 'leagues', currentLeagueId, 'matches', String(newRecord.id)), newRecord);
 
             // 3. Update Player Profiles (Stats) - Use Batch
             const matchStats = currentMatch.playerStats || {};
@@ -686,8 +789,9 @@ export const StoreProvider = ({ children }) => {
                     mvp: isMvp ? (currentStats.mvp || 0) + 1 : (currentStats.mvp || 0)
                 };
 
-                const playerRef = doc(db, 'users', String(p.id));
-                await updateDoc(playerRef, {
+                // Update MEMBER stats in the league
+                const memberRef = doc(db, 'leagues', currentLeagueId, 'members', String(p.id));
+                await updateDoc(memberRef, {
                     stats: newStats,
                     averageRating: newAverage,
                     previousRating: oldRating,
@@ -709,7 +813,7 @@ export const StoreProvider = ({ children }) => {
                 status: 'pending_confirmation' // New flow: Pending confirmation by Admin
             };
 
-            const configRef = doc(db, 'system', 'config');
+            const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
             // Reset config and clear votes
             await updateDoc(configRef, {
                 currentMatch: nextMatchState,
@@ -747,7 +851,7 @@ export const StoreProvider = ({ children }) => {
 
     // New: Confirm Match Action
     const confirmMatch = async () => {
-        const configRef = doc(db, 'system', 'config');
+        const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
         await updateDoc(configRef, {
             'currentMatch.status': 'upcoming'
         });
@@ -766,11 +870,191 @@ export const StoreProvider = ({ children }) => {
         setPlayers(prev => prev.filter(p => p.id !== uid));
     };
 
+    const generateInviteCode = async () => {
+        if (!isAdmin) return;
+        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const leagueRef = doc(db, 'leagues', currentLeagueId);
+        await updateDoc(leagueRef, {
+            'metadata.inviteCode': code
+        });
+    };
+
+    const joinLeague = async (inviteCode) => {
+        if (!authUser) throw new Error("Debes iniciar sesión.");
+
+        // 1. Find League by Invite Code
+        const leaguesRef = collection(db, 'leagues');
+        // Note: Firestore requires an index for this. If it fails, I'll need to create one or iterate (bad idea).
+        // Since inviteCode is in metadata map field 'metadata.inviteCode', queries can be tricky without composite index.
+        // Simplified approach: Get all leagues and filter (Scale concern but okay for MVP). 
+        // BETTER: Use a separate 'invites' collection or assume simple query works if index exists.
+        // Let's try direct query. If it fails due to index, I'll notify user.
+
+        // Actually, to avoid strict index requirements on nested fields initially, let's fetch all leagues 
+        // (assuming < 100 for now) and filter. If logic grows, we index.
+        const snap = await getDocs(leaguesRef);
+        const targetLeague = snap.docs.find(d => d.data().metadata?.inviteCode === inviteCode);
+
+        if (!targetLeague) {
+            throw new Error("Código de invitación inválido.");
+        }
+
+        const leagueId = targetLeague.id;
+
+        // 2. Check if already member
+        if (userProfile.leagues && userProfile.leagues[leagueId]) {
+            throw new Error("Ya eres miembro de esta liga.");
+        }
+
+        // 3. Add to League Members
+        const leagueMemberRef = doc(db, 'leagues', leagueId, 'members', authUser.uid);
+        await setDoc(leagueMemberRef, {
+            id: authUser.uid,
+            name: userProfile.alias || "Nuevo Jugador",
+            alias: userProfile.alias || "Nuevo Jugador",
+            photo: userProfile.photo || null,
+            role: 'player', // Default role
+            joinedAt: new Date().toISOString(),
+            stats: { mp: 0, goals: 0, assists: 0, mvpCount: 0 },
+            averageRating: 5.0
+        });
+
+        // 4. Update User Profile (Add league to map)
+        // 4. Update User Profile (Add league to map)
+        const userRef = doc(db, 'users', authUser.uid);
+        // Use setDoc with merge to ensure nested field creation if parent 'leagues' doesn't exist
+        await setDoc(userRef, {
+            leagues: {
+                [leagueId]: 'player'
+            }
+        }, { merge: true });
+
+        // NEW: Notify existing members
+        try {
+            const leagueName = targetLeague.data().metadata?.name || 'Liga';
+            const newPlayerName = userProfile.alias || "Nuevo Jugador";
+            const membersRef = collection(db, 'leagues', leagueId, 'members');
+            const membersSnap = await getDocs(membersRef);
+
+            const notifyPromises = membersSnap.docs
+                .filter(doc => doc.id !== authUser.uid) // Don't notify self
+                .map(async (memberDoc) => {
+                    const memberId = memberDoc.id;
+                    const notifRef = doc(collection(db, 'users', memberId, 'notifications'));
+                    await setDoc(notifRef, {
+                        title: "¡Nuevo Fichaje!",
+                        message: `${newPlayerName} se ha unido a la liga.`,
+                        type: 'info',
+                        link: '/rankings', // Go to rankings to see new player
+                        leagueId: leagueId,
+                        leagueName: leagueName,
+                        read: false,
+                        createdAt: new Date().toISOString()
+                    });
+                });
+
+            await Promise.all(notifyPromises);
+            console.log("Notificaciones de bienvenida enviadas.");
+        } catch (err) {
+            console.error("Error enviando notificaciones de bienvenida:", err);
+            // Non-critical, continue
+        }
+
+        // 5. Switch to new league
+        setCurrentLeagueId(leagueId);
+        window.location.href = '/'; // Redirect to home to ensure context switch and clear navigation history state
+        // State update might be safer for UX, but reload ensures listeners reset perfectly.
+        // Let's try soft navigation first, logic handles listener updates.
+        // Actually, `setCurrentLeagueId` triggers effects.
+        return true;
+    };
+
+    const updateLeagueMetadata = async (updates) => {
+        if (!isAdmin) throw new Error("Acceso denegado.");
+        if (!currentLeagueId) throw new Error("No hay liga seleccionada.");
+
+        // Construct keys for dot notation update (e.g. metadata.name)
+        const firestoreUpdates = {};
+        for (const [key, value] of Object.entries(updates)) {
+            firestoreUpdates[`metadata.${key}`] = value;
+        }
+
+        const leagueRef = doc(db, 'leagues', currentLeagueId);
+        await updateDoc(leagueRef, firestoreUpdates);
+
+        // Optimistic update for local myLeagues list (to reflect name change in dropdown)
+        setMyLeagues(prev => prev.map(l =>
+            l.id === currentLeagueId ? { ...l, ...updates } : l
+        ));
+    };
+
+    const updateHistoricMatch = async (matchId, data) => {
+        if (!isAdmin) return;
+
+        // data contains { scoreA, scoreB, playerStats }
+        // We need to format 'score' string: "A - B"
+        const scoreString = `${data.scoreA} - ${data.scoreB}`;
+
+        const matchRef = doc(db, 'leagues', currentLeagueId, 'matches', String(matchId));
+        await updateDoc(matchRef, {
+            score: scoreString,
+            playerStats: data.playerStats
+            // We could also update 'result' object if we start storing it separately like currentMatch
+        });
+
+        console.log("Updated historic match:", matchId);
+    };
+
+    const removeUserFromLeague = async (userId) => {
+        if (!isAdmin && !isSuperAdmin) return;
+
+        try {
+            // 1. Delete from League Members
+            await deleteDoc(doc(db, 'leagues', currentLeagueId, 'members', userId));
+
+            // 2. Remove League from User Profile
+            const userRef = doc(db, 'users', userId);
+            await updateDoc(userRef, {
+                [`leagues.${currentLeagueId}`]: deleteField()
+            });
+
+            // Optimistic update
+            setPlayers(prev => prev.filter(p => p.id !== userId));
+
+        } catch (error) {
+            console.error("Error removing user from league:", error);
+            throw error;
+        }
+    };
+
+    const clearNotifications = async () => {
+        if (!currentUser) return;
+        const promises = notifications.map(n =>
+            deleteDoc(doc(db, 'users', currentUser.id, 'notifications', n.id))
+        );
+        await Promise.all(promises);
+    };
+
+    const deleteNotification = async (notifId) => {
+        if (!currentUser) return;
+        await deleteDoc(doc(db, 'users', currentUser.id, 'notifications', notifId));
+    };
+
     const value = {
+        currentLeagueId,
+        setCurrentLeagueId,
+        currentLeagueData,
+        generateInviteCode,
+        joinLeague,
+        updateLeagueMetadata, // Exported
         players,
+        playersLoading,
         currentMatch,
         currentUser,
+        userProfile,
+        myLeagues,
         isAdmin,
+        isSuperAdmin,
         votingStatus,
         votes,
         mvpVotes,
@@ -798,17 +1082,21 @@ export const StoreProvider = ({ children }) => {
         updateUserRole,
         confirmMatch,
         updateAnnouncement,
+        updateHistoricMatch, // Exported
         completeOnboarding,
         deleteUser,
+        removeUserFromLeague, // Exported for League Admin
         clearDatabase,
         sendNotification,
+        deleteNotification, // New export
         markAsRead,
-        clearNotifications
+        clearNotifications,
+        globalUsers // Exported for SuperAdmin
     };
 
     return (
-        <StoreContext.Provider value={value}>
+        <StoreContext.Provider value={value} >
             {children}
-        </StoreContext.Provider>
+        </StoreContext.Provider >
     );
 };

@@ -1,29 +1,9 @@
 import React from 'react';
 import { Outlet, NavLink, Link } from 'react-router-dom';
-import { Home, Trophy, Calendar, User } from 'lucide-react';
+import { Home, Trophy, Calendar, User, Star } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
-
-const SoccerBallIcon = ({ size = 24, className }) => (
-    <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width={size}
-        height={size}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-    >
-        {/* Simple geometric approximation of a ball (Hex/Pentagon style is hard, using Dribbble style for now or simple lines) */}
-        <circle cx="12" cy="12" r="10" />
-        <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-        <path d="M2 12h20" />
-    </svg>
-);
 
 import TopBar from '../components/TopBar';
 
@@ -37,7 +17,7 @@ const MainLayout = () => {
             <TopBar />
 
             {/* Main Content Area */}
-            <main className="flex-grow p-4 overflow-y-auto w-full max-w-md mx-auto">
+            <main className="flex-grow p-4 w-full max-w-md mx-auto">
                 <Outlet />
             </main>
 
@@ -62,7 +42,7 @@ const MainLayout = () => {
                                         whileTap={{ scale: 0.9 }}
                                         className="w-16 h-16 bg-neon-green rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(57,255,20,0.5)] border-4 border-slate-950"
                                     >
-                                        <SoccerBallIcon size={32} className="text-slate-950" />
+                                        <Star size={32} className="text-slate-950" fill="currentColor" />
                                     </motion.div>
                                 </Link>
                             </div>

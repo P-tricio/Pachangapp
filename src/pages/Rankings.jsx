@@ -71,33 +71,38 @@ const Rankings = () => {
                     <motion.div key={`rank-row-${p.id}`} variants={item}>
                         <Link to={`/profile/${p.id}`} className="block group">
                             <div className={clsx(
-                                "grid grid-cols-12 gap-2 w-full items-center bg-slate-800/40 p-2 rounded-lg border border-white/5 hover:bg-slate-800 transition-all active:scale-95 relative overflow-hidden backdrop-blur-sm",
-                                index === 0 ? "border-l-2 border-l-yellow-400 bg-yellow-900/10" :
-                                    index === 1 ? "border-l-2 border-l-slate-300 bg-slate-800/60" :
-                                        index === 2 ? "border-l-2 border-l-orange-500 bg-orange-900/10" : "hover:border-neon-green/30"
+                                "grid grid-cols-12 gap-3 w-full items-center bg-slate-800/40 p-4 rounded-xl border border-white/5 hover:bg-slate-800 transition-all active:scale-95 relative overflow-hidden backdrop-blur-sm",
+                                index === 0 ? "border-l-4 border-l-yellow-400 bg-yellow-900/10" :
+                                    index === 1 ? "border-l-4 border-l-slate-300 bg-slate-800/60" :
+                                        index === 2 ? "border-l-4 border-l-orange-500 bg-orange-900/10" : "hover:border-neon-green/30"
                             )}>
-                                <div className={clsx("col-span-1 font-mono font-bold text-center text-xs", index < 3 ? "text-white" : "text-slate-600")}>
+                                <div className={clsx("col-span-1 font-mono font-bold text-center text-sm", index < 3 ? "text-white" : "text-slate-500")}>
                                     {index + 1}
                                 </div>
 
-                                <div className="col-span-5 flex items-center space-x-3 pl-2">
-                                    <div className="relative">
-                                        <img src={p.photo} alt={p.name} className="w-8 h-8 rounded-full object-cover ring-2 ring-white/5" />
-                                        {index < 3 && <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-neon-green border border-slate-900"></div>}
+                                <div className="col-span-5 flex items-center space-x-3 pl-1">
+                                    <div className="relative flex-shrink-0">
+                                        <img
+                                            src={p.photo || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png'}
+                                            alt={p.name}
+                                            onError={(e) => { e.target.onerror = null; e.target.src = 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png'; }}
+                                            className="w-10 h-10 rounded-full object-cover ring-2 ring-white/5"
+                                        />
+                                        {index < 3 && <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-neon-green border-2 border-slate-900"></div>}
                                     </div>
-                                    <div className="flex flex-col">
-                                        <p className="font-bold text-white text-xs leading-tight truncate">{p.alias || p.name}</p>
-                                        <p className="text-[9px] text-slate-500 font-medium uppercase tracking-wider">{p.realName || p.name}</p>
+                                    <div className="flex flex-col min-w-0">
+                                        <p className="font-bold text-white text-sm leading-tight break-words">{p.alias || p.name}</p>
+                                        <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider truncate">{p.realName || p.name}</p>
                                     </div>
                                 </div>
 
                                 <div className="col-span-1 flex justify-center">
-                                    <span className="font-mono font-bold text-slate-400 text-[10px] bg-slate-950/80 px-1.5 py-0.5 rounded border border-white/5">{p.stats.mp}</span>
+                                    <span className="font-mono font-bold text-slate-400 text-xs bg-slate-950/80 px-2 py-1 rounded border border-white/5">{p.stats.mp}</span>
                                 </div>
 
                                 <div className="col-span-2 flex justify-center">
-                                    <div className="bg-slate-950/50 rounded py-0.5 px-2 border border-white/5 min-w-[32px] text-center">
-                                        <span className={clsx("font-black text-xs",
+                                    <div className="bg-slate-950/50 rounded py-1 px-2 border border-white/5 min-w-[36px] text-center">
+                                        <span className={clsx("font-black text-sm",
                                             p.average >= 8 ? "text-neon-green/90" :
                                                 p.average >= 6 ? "text-yellow-400/90" : "text-red-400/90"
                                         )}>{p.average}</span>
@@ -114,22 +119,22 @@ const Rankings = () => {
 
                                         return (
                                             <div className={clsx("flex items-center ml-1", isUp ? "text-neon-green" : "text-red-500")}>
-                                                {isUp ? <ArrowUp size={10} strokeWidth={3} /> : <ArrowDown size={10} strokeWidth={3} />}
-                                                <span className="text-[9px] font-bold">{Math.abs(diff)}</span>
+                                                {isUp ? <ArrowUp size={12} strokeWidth={3} /> : <ArrowDown size={12} strokeWidth={3} />}
+                                                <span className="text-[10px] font-bold">{Math.abs(diff)}</span>
                                             </div>
                                         );
                                     })()}
                                 </div>
 
-                                <div className="col-span-3 text-right text-xs font-mono flex justify-end items-center space-x-1.5 pr-2">
+                                <div className="col-span-3 text-right text-xs font-mono flex justify-end items-center space-x-2 pr-1">
                                     <div className="flex flex-col items-center leading-none">
                                         <span className="text-[9px] text-slate-600 font-bold mb-0.5">G</span>
-                                        <span className="text-neon-green font-black text-sm">{p.stats.goals}</span>
+                                        <span className="text-neon-green font-black text-base">{p.stats.goals}</span>
                                     </div>
-                                    <div className="h-6 w-px bg-slate-800 mx-1"></div>
+                                    <div className="h-8 w-px bg-slate-800 mx-1"></div>
                                     <div className="flex flex-col items-center leading-none">
                                         <span className="text-[9px] text-slate-600 font-bold mb-0.5">A</span>
-                                        <span className="text-blue-400 font-bold text-sm">{p.stats.assists}</span>
+                                        <span className="text-blue-400 font-bold text-base">{p.stats.assists}</span>
                                     </div>
                                 </div>
                             </div>
@@ -185,7 +190,12 @@ const PodiumStep = ({ player, rank, delay }) => {
             <Link to={`/profile/${player.id}`} className="flex flex-col items-center group w-full">
                 <div className="relative mb-3 z-10">
                     <div className={clsx("rounded-full p-1 border-2 transition-all duration-300 group-hover:scale-110", config.avatarBorder)}>
-                        <img src={player.photo} alt={player.name} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover" />
+                        <img
+                            src={player.photo || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png'}
+                            alt={player.name}
+                            onError={(e) => { e.target.onerror = null; e.target.src = 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png'; }}
+                            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover"
+                        />
                     </div>
                     <div className={clsx("absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center font-black text-xs border border-slate-900 z-20", config.rankBox)}>
                         {rank}

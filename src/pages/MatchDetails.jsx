@@ -114,7 +114,7 @@ const MatchDetails = () => {
                         <div>
                             <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Lugar</p>
                             <p className="text-lg font-bold text-white">{currentMatch.location}</p>
-                            <a href="#" className="text-xs text-neon-green underline decoration-neon-green/50 hover:text-white">Ver en mapa</a>
+
                         </div>
                     </div>
                 </div>

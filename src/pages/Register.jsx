@@ -4,20 +4,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { updateProfile } from 'firebase/auth';
 import { db } from '../firebase/config';
 import { doc, setDoc } from 'firebase/firestore';
-import { Ticket } from 'lucide-react';
 
-// Import local avatars
-import avatarStriker from '../assets/avatars/avatar_striker.png';
-import avatarMidfielder from '../assets/avatars/avatar_midfielder.png';
-import avatarDefender from '../assets/avatars/avatar_defender.png';
-import avatarStreet from '../assets/avatars/avatar_street.png';
-
-const AVATARS = [avatarStriker, avatarMidfielder, avatarDefender, avatarStreet];
-
-const getRandomAvatar = () => {
-    const randomIndex = Math.floor(Math.random() * AVATARS.length);
-    return AVATARS[randomIndex];
-};
+// Generic Football Avatar (Placeholder)
+const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/166/166344.png';
 
 const Register = () => {
     const { registerWithEmail } = useAuth();
@@ -58,20 +47,20 @@ const Register = () => {
                 alias: alias,
                 realName: alias,
                 email: user.email || email,
-                photo: getRandomAvatar(),
+                photo: DEFAULT_AVATAR,
                 nationality: 'es',
                 position: 'MED',
                 role: 'user',
                 status: 'active',
                 attributes: { rit: 50, tir: 50, pas: 50, reg: 50, def: 50, fis: 50 },
                 stats: { mp: 0, goals: 0, assists: 0, mvp: 0 },
-                averageRating: 5.0
+                averageRating: 5.0,
+                leagues: {} // Initialize empty leagues map
             };
 
-            console.log("Creating profile for user:", user.uid, userData);
             await setDoc(doc(db, 'users', user.uid), userData);
 
-            navigate('/');
+            navigate('/join-league');
         } catch (err) {
             console.error(err);
             if (err.code === 'auth/email-already-in-use') {
