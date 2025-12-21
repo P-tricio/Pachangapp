@@ -420,9 +420,21 @@ export const StoreProvider = ({ children }) => {
         setPlayers(prev => prev.map(p =>
             p.id == playerId ? { ...p, alias: newAlias } : p
         ));
-        // Update global profile
+
+        // 1. Update Global Profile (users/{uid})
+        // Use setDoc merge to be safe if doc missing (though unlikely if joined)
         const playerRef = doc(db, 'users', String(playerId));
-        await updateDoc(playerRef, { alias: newAlias });
+        await setDoc(playerRef, { alias: newAlias }, { merge: true });
+
+        // 2. Update Local League Member (leagues/{id}/members/{uid}) to prevent shadowing
+        if (currentLeagueId) {
+            const memberRef = doc(db, 'leagues', currentLeagueId, 'members', String(playerId));
+            try {
+                await updateDoc(memberRef, { alias: newAlias }); // Update local alias too
+            } catch (err) {
+                console.warn("Could not update local member alias", err);
+            }
+        }
     };
 
     const updatePlayerCard = async (playerId, cardData) => {
@@ -451,17 +463,46 @@ export const StoreProvider = ({ children }) => {
         setPlayers(prev => prev.map(p =>
             p.id == playerId ? { ...p, ...updates } : p
         ));
-        const playerRef = doc(db, 'users', String(playerId));
-        await updateDoc(playerRef, updates);
+
+        // Stats are usually Local only. Assuming cardData is for stats.
+        // If cardData includes name/photo, we should handle differently, but usually it's stats.
+        // HOWEVER, previous implementation updated `users/{uid}` (Global)?
+        // Wait, Card Data (Stats) should be LOCAL.
+        // But the previous code updated GLOBAL `users` doc?
+        // Line 454: const playerRef = doc(db, 'users', String(playerId)); 
+        // This means Stats were Global.
+        // If we migrated to Multi-Tenancy, Stats should be LOCAL.
+        // I should fix this too -> Update Local Member.
+
+        if (currentLeagueId) {
+            const memberRef = doc(db, 'leagues', currentLeagueId, 'members', String(playerId));
+            await updateDoc(memberRef, updates);
+        } else {
+            // Fallback to global if no league (shouldn't happen in app usage)
+            const playerRef = doc(db, 'users', String(playerId));
+            await updateDoc(playerRef, updates);
+        }
     };
 
     const updatePlayerPhoto = async (playerId, newPhotoUrl) => {
         setPlayers(prev => prev.map(p =>
             p.id == playerId ? { ...p, photo: newPhotoUrl } : p
         ));
+        // 1. Update Global
         const playerRef = doc(db, 'users', String(playerId));
-        await updateDoc(playerRef, { photo: newPhotoUrl });
+        await setDoc(playerRef, { photo: newPhotoUrl }, { merge: true });
+
+        // 2. Update Local
+        if (currentLeagueId) {
+            try {
+                const memberRef = doc(db, 'leagues', currentLeagueId, 'members', String(playerId));
+                await updateDoc(memberRef, { photo: newPhotoUrl });
+            } catch (err) {
+                console.warn("Could not update local member photo", err);
+            }
+        }
     };
+
 
     const setAttendance = async (playerId, status) => {
         const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');

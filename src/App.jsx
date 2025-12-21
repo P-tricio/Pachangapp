@@ -41,7 +41,11 @@ const AppContent = () => {
   const { currentUser, userProfile, playersLoading, isSuperAdmin, setCurrentLeagueId } = useStore();
   const { user, loading: authLoading } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate(); // Ensure useNavigate is imported if not already used in AppContent? 
+  const navigate = useNavigate();
+
+  // 1. Logic Helpers
+  const isExcludedPath = location.pathname === '/join-league' || location.pathname === '/super-admin' || location.pathname === '/create-league';
+  const hasLeagues = userProfile?.leagues && Object.keys(userProfile.leagues).length > 0;
   // Wait, useNavigate is NOT in AppContent scope in original file? 
   // Line 41: const AppContent = () => { ... }
   // Line 3 imported `useNavigate`? No, Line 3 imports `StoreProvider`.
@@ -54,13 +58,6 @@ const AppContent = () => {
 
   // Revised approach for simpler React:
   // 5. Global Profile exists, but USER HAS NO LEAGUES -> Redirect to Join
-  const isExcludedPath = location.pathname === '/join-league' || location.pathname === '/super-admin' || location.pathname === '/create-league';
-  const hasLeagues = userProfile?.leagues && Object.keys(userProfile.leagues).length > 0;
-
-  if (user && userProfile && !playersLoading && !hasLeagues && !isExcludedPath && !isSuperAdmin) {
-    return <Navigate to="/join-league" replace />;
-  }
-
   // 6. User HAS leagues but Invalid Context (Ghost User) -> Auto-switch to first league
   // This is a side-effect (state update), cannot be done in render.
   React.useEffect(() => {
@@ -70,6 +67,10 @@ const AppContent = () => {
       setCurrentLeagueId(firstLeagueId);
     }
   }, [user, userProfile, playersLoading, hasLeagues, currentUser, setCurrentLeagueId]);
+
+  if (user && userProfile && !playersLoading && !hasLeagues && !isExcludedPath && !isSuperAdmin) {
+    return <Navigate to="/join-league" replace />;
+  }
 
   // 5. Blocked user (Check global status)
   if (userProfile?.status === 'blocked') {
