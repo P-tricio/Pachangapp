@@ -18,26 +18,27 @@ const Register = () => {
     const [loading, setLoading] = useState(false);
 
     // Protection: Block auto-redirect during active registration
-    const isSubmitting = useRef(false);
+    // Protection: Block auto-redirect during active registration
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const { user } = useAuth();
 
     useEffect(() => {
-        if (user && !isSubmitting.current) {
+        if (user && !isSubmitting) {
             navigate('/');
         }
-    }, [user, navigate]);
+    }, [user, isSubmitting, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setLoading(true);
-        isSubmitting.current = true; // Block auto-redirect to allow full profile creation
+        setIsSubmitting(true); // Block auto-redirect to allow full profile creation
 
         if (!email || !password || !alias) {
             setError('Por favor, rellena todos los campos.');
             setLoading(false);
-            isSubmitting.current = false;
+            setIsSubmitting(false);
             return;
         }
 
@@ -81,7 +82,7 @@ const Register = () => {
             } else {
                 setError('Error al registrarse: ' + err.message);
             }
-            isSubmitting.current = false;
+            setIsSubmitting(false);
         } finally {
             setLoading(false);
         }

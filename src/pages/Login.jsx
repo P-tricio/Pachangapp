@@ -29,25 +29,25 @@ const Login = () => {
     // Protection against race condition:
     // If we are actively logging in, we don't want the useEffect to redirect prematurely.
     // We want the handler to finish creating the profile FIRST, then redirect manually.
-    const isSubmitting = useRef(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Redirect handled by AppContent to avoid loops with missing profiles
     // BUT we also want to redirect if user visits /login while already auth'd
     useEffect(() => {
-        if (user && !isSubmitting.current) {
+        if (user && !isSubmitting) {
             navigate('/');
         }
-    }, [user, navigate]);
+    }, [user, isSubmitting, navigate]);
 
 
     const handleGoogleLogin = async () => {
-        isSubmitting.current = true; // Block auto-redirect
+        setIsSubmitting(true); // Block auto-redirect
         try {
             const user = await loginWithGoogle();
 
             if (!user) {
                 console.error("No user result from Google Login");
-                isSubmitting.current = false; // Reset if cancelled
+                setIsSubmitting(false); // Reset if cancelled
                 return;
             }
 
@@ -80,7 +80,7 @@ const Login = () => {
         } catch (error) {
             console.error("Login failed", error);
             setError("Error al iniciar con Google");
-            isSubmitting.current = false;
+            setIsSubmitting(false);
         }
     };
 
@@ -88,7 +88,7 @@ const Login = () => {
         e.preventDefault();
         setError('');
         setLoading(true);
-        isSubmitting.current = true; // Block auto-redirect
+        setIsSubmitting(true); // Block auto-redirect
 
         try {
             const userCredential = await loginWithEmail(email, password);
@@ -126,7 +126,7 @@ const Login = () => {
             console.error(err);
             setError("Credenciales incorrectas o error en el servidor");
             setLoading(false);
-            isSubmitting.current = false;
+            setIsSubmitting(false);
         }
     };
 
