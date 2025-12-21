@@ -186,7 +186,7 @@ export const StoreProvider = ({ children }) => {
                 membersMap[doc.id] = doc.data();
             });
             setLeagueMembers(membersMap);
-            setPlayersLoading(false);
+            // Moved setPlayersLoading(false) to merge effect to prevent race condition
         });
         return () => unsubscribe();
     }, [authUser, currentLeagueId]);
@@ -206,6 +206,7 @@ export const StoreProvider = ({ children }) => {
         }).filter(Boolean); // Remove nulls
 
         setPlayers(merged);
+        setPlayersLoading(false); // Data is now ready
     }, [globalUsers, leagueMembers]);
 
     // Current Match (System Config)
