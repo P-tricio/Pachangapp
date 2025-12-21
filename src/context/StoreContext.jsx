@@ -42,6 +42,7 @@ export const StoreProvider = ({ children }) => {
     // 1. Global Profiles (users collection) - to get names/photos
     // 2. League Members (leagues/{id}/members) - to get stats/ratings specific to this league
     const [globalUsers, setGlobalUsers] = useState({}); // Map { uid: profileData }
+    const [usersLoading, setUsersLoading] = useState(true); // Track global users loading
     const [leagueMembers, setLeagueMembers] = useState({}); // Map { uid: statsData }
 
     // Independent Voting State 
@@ -166,6 +167,7 @@ export const StoreProvider = ({ children }) => {
                 usersMap[doc.id] = { ...doc.data(), id: doc.id };
             });
             setGlobalUsers(usersMap);
+            setUsersLoading(false);
         });
         return () => unsubscribe();
     }, [authUser]);
@@ -193,6 +195,8 @@ export const StoreProvider = ({ children }) => {
 
     // 3. Merge Users + Members to form 'players' list
     useEffect(() => {
+        if (usersLoading) return; // Wait for global users to load
+
         const merged = Object.keys(leagueMembers).map(uid => {
             const profile = globalUsers[uid];
             const memberStats = leagueMembers[uid];
@@ -207,7 +211,7 @@ export const StoreProvider = ({ children }) => {
 
         setPlayers(merged);
         setPlayersLoading(false); // Data is now ready
-    }, [globalUsers, leagueMembers]);
+    }, [globalUsers, leagueMembers, usersLoading]);
 
     // Current Match (System Config)
     // Current Match (League Config)
