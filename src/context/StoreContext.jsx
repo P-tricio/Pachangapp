@@ -886,13 +886,13 @@ export const StoreProvider = ({ children }) => {
     };
 
     const updateUserStatus = async (uid, newStatus) => {
-        const userRef = doc(db, 'users', uid);
-        await updateDoc(userRef, { status: newStatus });
+        const memberRef = doc(db, 'leagues', currentLeagueId, 'members', uid);
+        await updateDoc(memberRef, { status: newStatus });
     };
 
     const updateUserRole = async (uid, newRole) => {
-        const userRef = doc(db, 'users', uid);
-        await updateDoc(userRef, { role: newRole });
+        const memberRef = doc(db, 'leagues', currentLeagueId, 'members', uid);
+        await updateDoc(memberRef, { role: newRole });
     };
 
     // New: Confirm Match Action
