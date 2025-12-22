@@ -5,6 +5,8 @@ import { Calendar, Clock, MapPin, CheckCircle2, XCircle, HelpCircle, Users, Aler
 import Card from '../components/ui/Card';
 import clsx from 'clsx';
 import ResultModal from '../components/ResultModal';
+import EditTeamsModal from '../components/EditTeamsModal';
+import { Settings2, Edit } from 'lucide-react';
 
 const MatchDetails = () => {
     const { currentMatch, setAttendance, players, currentUser, addGuestPlayer, removeGuestPlayer, generateTeams, clearTeams, isAdmin, confirmMatch, updateMatchDetails, setMatchResult } = useStore();
@@ -15,6 +17,7 @@ const MatchDetails = () => {
     const isLocked = !isUpcoming; // Locked if pending, played, or closed
     const [guestName, setGuestName] = React.useState('');
     const [isFinishing, setIsFinishing] = useState(false);
+    const [isEditingTeams, setIsEditingTeams] = useState(false);
 
     // Use centralized user
     const me = currentUser;
@@ -147,14 +150,21 @@ const MatchDetails = () => {
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Equipos</h2>
                     {isAdmin && (
                         <div className="flex space-x-2">
+                            <button
+                                onClick={() => {
+                                    if (window.confirm("¿Estás seguro de que quieres borrar los equipos?")) clearTeams();
+                                }}
+                                className="text-xs font-bold bg-slate-800 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/30 flex items-center space-x-1 hover:bg-red-500 hover:text-white transition-colors"
+                            >
+                                <Trash2 size={14} />
+                            </button>
                             {currentMatch.teams && (
                                 <button
-                                    onClick={() => {
-                                        if (window.confirm("¿Estás seguro de que quieres borrar los equipos?")) clearTeams();
-                                    }}
-                                    className="text-xs font-bold bg-slate-800 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/30 flex items-center space-x-1 hover:bg-red-500 hover:text-white transition-colors"
+                                    onClick={() => setIsEditingTeams(true)}
+                                    className="text-xs font-bold bg-slate-800 text-sky-400 px-3 py-1.5 rounded-lg border border-sky-400/30 flex items-center space-x-1 hover:bg-sky-400 hover:text-slate-900 transition-colors"
                                 >
-                                    <Trash2 size={14} />
+                                    <Edit size={14} />
+                                    <span>Editar</span>
                                 </button>
                             )}
                             <button
@@ -367,6 +377,15 @@ const MatchDetails = () => {
                     />
                 )
             }
+
+            {/* EDIT TEAMS MODAL */}
+            {isEditingTeams && (
+                <EditTeamsModal
+                    isOpen={isEditingTeams}
+                    onClose={() => setIsEditingTeams(false)}
+                    currentMatch={currentMatch}
+                />
+            )}
 
         </div >
     );

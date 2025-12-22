@@ -636,6 +636,29 @@ export const StoreProvider = ({ children }) => {
         });
     };
 
+    const updateMatchTeams = async (teamsObject) => {
+        if (!currentLeagueId) return;
+
+        // Recalculate Averages
+        const getAvg = (team) => {
+            const counted = team.filter(p => !p.isGuest && p.averageRating);
+            if (!counted.length) return 0;
+            return (counted.reduce((acc, p) => acc + p.averageRating, 0) / counted.length).toFixed(1);
+        };
+
+        const finalTeams = {
+            teamA: teamsObject.teamA,
+            teamB: teamsObject.teamB,
+            avgA: getAvg(teamsObject.teamA),
+            avgB: getAvg(teamsObject.teamB)
+        };
+
+        const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
+        await updateDoc(configRef, {
+            'currentMatch.teams': finalTeams
+        });
+    };
+
     // STAGE 2: Set Result & Open Voting (or Update Result)
     const setMatchResult = async (scoreA, scoreB, playerStats) => {
         const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
@@ -1116,6 +1139,7 @@ export const StoreProvider = ({ children }) => {
         getLeaderboard,
         setCurrentMatch,
         updateMatchDetails,
+        updateMatchTeams, // Exported
         addGuestPlayer,
         removeGuestPlayer,
         generateTeams,
