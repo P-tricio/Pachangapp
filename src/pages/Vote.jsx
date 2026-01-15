@@ -12,11 +12,21 @@ const Vote = () => {
     const { players, castVote, castMvpVote, currentUser, currentMatch, votes, mvpVotes } = useStore();
     const navigate = useNavigate();
 
-    // Exclude current user and guests
-    const votingQueue = players.filter(p =>
+    // Exclude current user and guests (if logic requires, but guests ARE in teams so they might be votable now?)
+    // User wanted guests to NOT be votable previously? No, user said "todos registrados".
+    // But safely: Get all from Teams.
+
+    // Source of Truth: Teams
+    const allTeamPlayers = currentMatch.teams
+        ? [...(currentMatch.teams.teamA || []), ...(currentMatch.teams.teamB || [])]
+        : [];
+
+    // Fallback to attendance ONLY if teams are empty (legacy safety), but teams should exist if status is 'played'
+    // Actually, if we are voting, teams MUST exist.
+
+    const votingQueue = allTeamPlayers.filter(p =>
         p.id !== currentUser?.id &&
-        currentMatch.attendance?.[p.id] === 'confirmed' &&
-        !votes?.[currentUser.id]?.[p.id] // Don't show players already rated in this session
+        !votes?.[currentUser.id]?.[p.id] // Don't show players already rated
     );
 
     const hasAlreadyFinished = currentUser && currentMatch.status === 'played_pending_votes' && mvpVotes?.[currentUser.id];
@@ -83,24 +93,27 @@ const Vote = () => {
                 <h1 className="text-3xl font-black text-center text-white mb-8 z-10">ELIJE AL <span className="text-yellow-400">MVP</span></h1>
 
                 <div className="grid grid-cols-2 gap-4 mb-8 z-10">
-                    {players.filter(p => p.id !== currentUser?.id && currentMatch.attendance?.[p.id] === 'confirmed').map(p => (
-                        <div
-                            key={p.id}
-                            onClick={() => setSelectedMVP(p.id)}
-                            className={clsx(
-                                "relative bg-slate-800 p-2 rounded-xl border-2 transition-all cursor-pointer",
-                                selectedMVP === p.id ? "border-yellow-400 bg-slate-700" : "border-slate-700 hover:border-slate-500"
-                            )}
-                        >
-                            <img src={p.photo} alt={p.name} className="w-full h-24 object-cover rounded-lg mb-2" />
-                            <p className="text-center font-bold text-white text-sm">{p.alias || p.name}</p>
-                            {selectedMVP === p.id && (
-                                <div className="absolute top-2 right-2 bg-yellow-400 text-black rounded-full p-1">
-                                    <Check size={16} strokeWidth={3} />
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                    {/* Reuse allTeamPlayers (calculated above or re-calc here if scope issue) */}
+                    {(currentMatch.teams ? [...(currentMatch.teams.teamA || []), ...(currentMatch.teams.teamB || [])] : players.filter(p => currentMatch.attendance?.[p.id] === 'confirmed'))
+                        .filter(p => p.id !== currentUser?.id)
+                        .map(p => (
+                            <div
+                                key={p.id}
+                                onClick={() => setSelectedMVP(p.id)}
+                                className={clsx(
+                                    "relative bg-slate-800 p-2 rounded-xl border-2 transition-all cursor-pointer",
+                                    selectedMVP === p.id ? "border-yellow-400 bg-slate-700" : "border-slate-700 hover:border-slate-500"
+                                )}
+                            >
+                                <img src={p.photo} alt={p.name} className="w-full h-24 object-cover rounded-lg mb-2" />
+                                <p className="text-center font-bold text-white text-sm">{p.alias || p.name}</p>
+                                {selectedMVP === p.id && (
+                                    <div className="absolute top-2 right-2 bg-yellow-400 text-black rounded-full p-1">
+                                        <Check size={16} strokeWidth={3} />
+                                    </div>
+                                )}
+                            </div>
+                        ))}
                 </div>
 
                 <Button onClick={submitFinalContext} disabled={!selectedMVP} variant={selectedMVP ? 'primary' : 'secondary'} className="z-10">

@@ -628,6 +628,22 @@ export const StoreProvider = ({ children }) => {
         );
     };
 
+    const resetCurrentMatch = async () => {
+        if (!isAdmin) return;
+        const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
+        await updateDoc(configRef, {
+            'currentMatch.status': 'pending_confirmation',
+            'currentMatch.result': null,
+            'currentMatch.playerStats': {},
+            'votes': {}, // CRITICAL FIX: Clear votes
+            'mvpVotes': {} // CRITICAL FIX: Clear MVP votes
+        });
+        // We do NOT clear teams here to allow re-using them if just resetting score, 
+        // BUT user said "Generate is Admin only". 
+        // If we reset context "Match", usually we want to keep teams if it was just a score error?
+        // Let's keep teams. If they want to clear teams, they use "Clear Teams".
+    };
+
     const clearTeams = async () => {
         if (!isAdmin) return;
         const configRef = doc(db, 'leagues', currentLeagueId, 'system', 'config');
@@ -790,6 +806,13 @@ export const StoreProvider = ({ children }) => {
 
             const mvpPlayer = players.find(p => p.id == mvpId);
 
+            // Calculate detailed ratings for archive
+            const ratingsMap = {};
+            players.forEach(p => {
+                const avg = getMatchAvg(p.id);
+                if (avg > 0) ratingsMap[p.id] = parseFloat(avg.toFixed(1));
+            });
+
             // 2. Archive
             const newRecord = {
                 id: Date.now(),
@@ -802,7 +825,12 @@ export const StoreProvider = ({ children }) => {
                 mvpPhoto: mvpPlayer ? mvpPlayer.photo : null,
                 // New: Archive full data for History Details
                 teams: currentMatch.teams || null,
-                playerStats: currentMatch.playerStats || null
+                playerStats: currentMatch.playerStats || null,
+                ratings: ratingsMap, // Archive Ratings
+                audit: { // Archive Raw Votes (Admin Only via security rules/frontend logic)
+                    votes: votes || {},
+                    mvpVotes: mvpVotes || {}
+                }
             };
 
             console.log("Archiving match:", newRecord);
@@ -1144,6 +1172,7 @@ export const StoreProvider = ({ children }) => {
         removeGuestPlayer,
         generateTeams,
         clearTeams, // Export
+        resetCurrentMatch, // Exported
         toggleVoting,
         updatePlayerProfile,
         updatePlayerPhoto,
