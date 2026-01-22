@@ -21,13 +21,18 @@ const Vote = () => {
         ? [...(currentMatch.teams.teamA || []), ...(currentMatch.teams.teamB || [])]
         : [];
 
-    // Fallback to attendance ONLY if teams are empty (legacy safety), but teams should exist if status is 'played'
-    // Actually, if we are voting, teams MUST exist.
+    // Filter once to get all candidates (except self)
+    const allCandidates = allTeamPlayers.filter(p => p.id !== currentUser?.id);
 
-    const votingQueue = allTeamPlayers.filter(p =>
-        p.id !== currentUser?.id &&
-        !votes?.[currentUser.id]?.[p.id] // Don't show players already rated
-    );
+    // Initial state logic to find where we left off
+    const [currentIndex, setCurrentIndex] = useState(() => {
+        // Find the first player index that hasn't been voted for in this match session
+        const firstUnvotedIndex = allCandidates.findIndex(p => !votes?.[currentUser?.id]?.[p.id]);
+        return firstUnvotedIndex !== -1 ? firstUnvotedIndex : 0;
+    });
+
+    // The current active queue for display purposes (still shows remaining count correctly)
+    const votingQueue = allCandidates; // Queue is now the full stable list
 
     const hasAlreadyFinished = currentUser && currentMatch.status === 'played_pending_votes' && mvpVotes?.[currentUser.id];
 
@@ -39,7 +44,6 @@ const Vote = () => {
         }
     }, [currentUser, currentMatch.status, hasAlreadyFinished, navigate]);
 
-    const [currentIndex, setCurrentIndex] = useState(0);
     const [isFinished, setIsFinished] = useState(false);
     const [selectedMVP, setSelectedMVP] = useState(null);
     const [sliderValue, setSliderValue] = useState(6); // Default starting score
@@ -49,18 +53,19 @@ const Vote = () => {
         setSliderValue(6);
     }, [currentIndex]);
 
-    // If queue is empty but not finished, it means we only need to pick MVP
+    // If all candidates are voted for, we move to MVP
     useEffect(() => {
-        if (votingQueue.length === 0 && !hasAlreadyFinished && !isFinished) {
+        const remainingToVote = allCandidates.filter(p => !votes?.[currentUser?.id]?.[p.id]);
+        if (remainingToVote.length === 0 && !hasAlreadyFinished && !isFinished) {
             setIsFinished(true);
         }
-    }, [votingQueue.length, hasAlreadyFinished, isFinished]);
+    }, [allCandidates, votes, currentUser.id, hasAlreadyFinished, isFinished]);
 
     if (!currentUser || hasAlreadyFinished) {
         return null;
     }
 
-    const currentPlayer = votingQueue[currentIndex];
+    const currentPlayer = allCandidates[currentIndex];
 
     // Final safety guard for transition frames
     if (!isFinished && !currentPlayer) {
@@ -72,7 +77,7 @@ const Vote = () => {
             castVote(currentPlayer.id, sliderValue);
         }
 
-        if (currentIndex < votingQueue.length - 1) {
+        if (currentIndex < allCandidates.length - 1) {
             setCurrentIndex(prev => prev + 1);
         } else {
             setIsFinished(true);

@@ -12,7 +12,7 @@ const MainLayout = () => {
     const isVotingOpen = votingStatus === 'open';
 
     return (
-        <div className="flex flex-col min-h-screen bg-slate-900 text-slate-100 font-sans pb-20">
+        <div className="flex flex-col min-h-screen w-full bg-slate-900 text-slate-100 font-sans pb-20 overflow-x-hidden">
             {/* Global Header */}
             <TopBar />
 
@@ -22,7 +22,7 @@ const MainLayout = () => {
             </main>
 
             {/* Bottom Navigation */}
-            <nav className="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50">
+            <nav className="fixed bottom-0 inset-x-0 bg-slate-950 border-t border-slate-800 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50">
                 <div className="relative flex items-center h-16 px-2 max-w-md mx-auto">
                     {/* Conditional Layout: 5 Columns (Voting Open) vs 4 Columns (Voting Closed) */}
 

@@ -79,7 +79,10 @@ const Login = () => {
 
         } catch (error) {
             console.error("Login failed", error);
-            setError("Error al iniciar con Google");
+            const errorMessage = error.code === 'auth/popup-blocked'
+                ? "El navegador bloqueó el popup. Permite ventanas emergentes."
+                : `Error al iniciar sesión: ${error.code || 'Error desconocido'}`;
+            setError(errorMessage);
             setIsSubmitting(false);
         }
     };
